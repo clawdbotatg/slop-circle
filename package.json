@@ -1,0 +1,11 @@
+{
+  "name": "slop-circle",
+  "private": true,
+  "version": "0.0.1",
+  "workspaces": ["relay", "web"],
+  "scripts": {
+    "relay": "npm run dev -w relay",
+    "web": "npm run dev -w web",
+    "build": "npm run build -w relay && npm run build -w web"
+  }
+}
