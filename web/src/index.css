@@ -1,0 +1,179 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: #0d0b14;
+  color: #e8e4f0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  background: #171226;
+  border: 1px solid #2e2547;
+  border-radius: 10px;
+  padding: 2rem;
+  width: min(22rem, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card h1 {
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+}
+
+.card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+input {
+  background: #0d0b14;
+  border: 1px solid #2e2547;
+  border-radius: 6px;
+  color: inherit;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+}
+
+button {
+  background: #6d28d9;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.ghost {
+  background: transparent;
+  border: 1px solid #2e2547;
+}
+
+.dim {
+  color: #8b83a3;
+  font-size: 0.85rem;
+}
+
+.err {
+  color: #f87171;
+  font-size: 0.85rem;
+  padding: 0.25rem 1rem;
+}
+
+.room {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid #2e2547;
+  flex-wrap: wrap;
+}
+
+.roomname {
+  font-weight: bold;
+  color: #a78bfa;
+}
+
+.handle {
+  width: 9rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.status {
+  color: #8b83a3;
+  font-size: 0.85rem;
+}
+
+.status.ok {
+  color: #4ade80;
+}
+
+header nav {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+
+header nav button {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.tile {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #171226;
+  min-height: 12rem;
+}
+
+.tile-label {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  background: rgba(13, 11, 20, 0.75);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.tile-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-audio-glyph {
+  font-size: 3rem;
+}
+
+.tile-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b83a3;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8b83a3;
+}

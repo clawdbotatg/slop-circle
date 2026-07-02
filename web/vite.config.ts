@@ -6,5 +6,12 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "./",
-  server: { port: 5180 },
+  server: {
+    port: 5180,
+    proxy: {
+      "/signal": { target: "ws://127.0.0.1:8788", ws: true },
+      "/v1": "http://127.0.0.1:8788",
+      "/turn": "http://127.0.0.1:8788",
+    },
+  },
 });
