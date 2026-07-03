@@ -3,6 +3,7 @@ import { deriveRoomKeys } from "./crypto/roomKeys";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
 import { AudioTile, VideoTile } from "./ui/StreamView";
+import { WalletPanel } from "./wallet/WalletPanel";
 
 // The room link is `…/#<slug>:<password>` — the URL FRAGMENT never reaches
 // any server, so sharing a link shares the secret peer-to-peer only.
@@ -172,6 +173,7 @@ function Room({
   const label = handle || "anon";
   const mesh = useMesh(true, slug, label, mediaKey, authKey);
   const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
+  const [walletOpen, setWalletOpen] = useState(false);
 
   const [streams, setStreams] = useState<LocalStreamHandle[]>([]);
   const streamsRef = useRef<LocalStreamHandle[]>(streams);
@@ -261,8 +263,10 @@ function Room({
               Mic only
             </button>
           )}
+          <button onClick={() => setWalletOpen(true)}>Wallet</button>
         </nav>
       </header>
+      {walletOpen && <WalletPanel onClose={() => setWalletOpen(false)} />}
       {media.error && <p className="err">{media.error}</p>}
       <main className="grid">
         {tiles.map(({ pub, mine, stream }) => {

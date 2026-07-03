@@ -320,6 +320,28 @@ What this protects, and from whom:
   Passkey join, wallet-signers room gate, propose/sign/execute over data
   channels, facilitator (optional module), configurable RPC URL.
   Milestone: a passkey-only member receives, co-signs, and spends.
+  - **Done (2026-07-03) — the foundation / "receives" half.** Vendored the
+    slop Multisig v4 ABIs + addresses (`web/src/wallet/contracts.ts`) and the
+    pure utils (`multisig.ts`: exec hash, salt, sig sorting, passkey-address
+    derivation, personal-wallet 1-of-2 derivation). Fork-native passkey
+    identity with **no server round-trip** (`wallet/passkey.ts`:
+    `createPasskey` → parse SPKI P-256 pubkey → address keccak(qx‖qy)[-20:],
+    stored locally). Configurable RPC (`wallet/rpc.ts`: chain + RPC URL +
+    deployer, viem public client; default public endpoint is bootstrap-only,
+    point it at your own node). Wallet panel UI (`wallet/WalletPanel.tsx`):
+    create passkey, show signer address + counterfactual personal-wallet
+    address + native balance + network settings. Verified:
+    `test/passkey-identity.mjs` (virtual WebAuthn authenticator → identity
+    created with no wallet/server, persists across reload) and a live-Base
+    read confirming the vendored factory ABI + CREATE2 derivation return a
+    real `getMultisigAddress`. NB: WebAuthn RP ID must be a domain or
+    `localhost` (never a bare IP) — real deploys use a domain over HTTPS.
+  - **Still open in Phase 2 (needs a chain — testnet/fork or funded keys):**
+    passkey signing of the exec hash → `WalletSignature` (vendor the
+    `navigator.credentials.get` → DER-parse path), propose/sign/execute over
+    the mesh data channels, wallet-signers room gate (relay verifies signer
+    membership on-chain), and the optional gas facilitator. No local chain
+    here (no foundry/anvil), so these get built against a testnet fork next.
 - **Phase 3 — the ladder.** Share-your-node RPC over data channels, quorum
   with block pinning + room-visible disagreement, IPFS/ENS deployment of
   the client, one-command server (docker compose: relay + coturn).
