@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { decryptReceiver, encryptSender, frameCryptoSupported } from "../crypto/frameCrypto";
+import { runPeerAuth, type PeerAuthResult } from "./peerAuth";
+
+export type PeerAuthState = "pending" | PeerAuthResult;
 
 // Adapted from slop-computer-live usePeerMesh.ts — media/mesh essentials
 // only (~700 of 4,692 lines). Full-mesh WebRTC: every peer connects to
@@ -116,6 +119,8 @@ export type MeshState = {
   publications: Publication[];
   /** True when media frames are end-to-end encrypted with the room key. */
   encrypted: boolean;
+  /** Per-peer authentication status (proved knowledge of the room secret). */
+  peerAuth: Record<string, PeerAuthState>;
   publish: (stream: MediaStream, kind: StreamKind, label: string) => void;
   unpublish: (streamId: string) => void;
   replaceTrack: (
@@ -126,13 +131,20 @@ export type MeshState = {
   setCameraOff: (streamId: string, off: boolean) => void;
 };
 
-export function useMesh(enabled: boolean, slug: string, label: string, mediaKey: ArrayBuffer | null): MeshState {
+export function useMesh(
+  enabled: boolean,
+  slug: string,
+  label: string,
+  mediaKey: ArrayBuffer | null,
+  authKey: ArrayBuffer | null,
+): MeshState {
   const [myId, setMyId] = useState<string | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [peerAuth, setPeerAuth] = useState<Record<string, PeerAuthState>>({});
 
   const wsRef = useRef<WebSocket | null>(null);
   const myIdRef = useRef<string | null>(null);
@@ -145,6 +157,20 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
   labelRef.current = label;
   const mediaKeyRef = useRef(mediaKey);
   mediaKeyRef.current = mediaKey;
+  const authKeyRef = useRef(authKey);
+  authKeyRef.current = authKey;
+
+  const setPeerAuthStatus = useCallback((peerId: string, status: PeerAuthState) => {
+    setPeerAuth(prev => (prev[peerId] === status ? prev : { ...prev, [peerId]: status }));
+  }, []);
+  const clearPeerAuth = useCallback((peerId: string) => {
+    setPeerAuth(prev => {
+      if (!(peerId in prev)) return prev;
+      const next = { ...prev };
+      delete next[peerId];
+      return next;
+    });
+  }, []);
 
   // Live mirrors so the watchdog interval reads fresh state without rebuilding.
   const publicationsRef = useRef<Publication[]>(publications);
@@ -174,7 +200,8 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
     }
     peerConnectionsRef.current.delete(peerId);
     makingOfferRef.current.delete(peerId);
-  }, []);
+    clearPeerAuth(peerId);
+  }, [clearPeerAuth]);
 
   const createPeerConnection = useCallback(
     (peerId: string): RTCPeerConnection => {
@@ -184,6 +211,26 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
         ...iceConfigRef.current,
         ...(mediaKeyRef.current ? { encodedInsertableStreams: true } : {}),
       } as RTCConfiguration);
+
+      // Peer authentication over a data channel: the lower-id peer opens
+      // "circle-auth", the higher-id peer answers via ondatachannel. Each
+      // proves knowledge of the room secret to the other.
+      const authKeyBytes = authKeyRef.current;
+      if (authKeyBytes) {
+        const meId = myIdRef.current ?? "";
+        setPeerAuthStatus(peerId, "pending");
+        const onResult = (r: PeerAuthResult) => setPeerAuthStatus(peerId, r);
+        if (meId < peerId) {
+          const ch = pc.createDataChannel("circle-auth");
+          runPeerAuth(ch, { myId: meId, peerId, authKey: authKeyBytes }, onResult);
+        } else {
+          pc.ondatachannel = e => {
+            if (e.channel.label === "circle-auth") {
+              runPeerAuth(e.channel, { myId: meId, peerId, authKey: authKeyBytes }, onResult);
+            }
+          };
+        }
+      }
 
       // Attach existing local streams so newly-formed pcs get our media.
       for (const { stream, kind } of localStreamsRef.current.values()) {
@@ -250,7 +297,7 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
       peerConnectionsRef.current.set(peerId, pc);
       return pc;
     },
-    [send, closePeerConnection],
+    [send, closePeerConnection, setPeerAuthStatus],
   );
 
   const handleOffer = useCallback(
@@ -437,6 +484,7 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
       });
       peerConnectionsRef.current = new Map();
       setRemoteStreams(new Map());
+      setPeerAuth({});
     };
 
     const connect = async () => {
@@ -640,6 +688,7 @@ export function useMesh(enabled: boolean, slug: string, label: string, mediaKey:
     remoteStreams,
     publications,
     encrypted: mediaKey !== null && frameCryptoSupported(),
+    peerAuth,
     publish,
     unpublish,
     replaceTrack,

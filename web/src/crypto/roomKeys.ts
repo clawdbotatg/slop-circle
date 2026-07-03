@@ -39,17 +39,21 @@ export type RoomKeys = {
   verifier: string;
   /** AES-256-GCM key material for frame encryption. Never sent anywhere. */
   mediaKey: ArrayBuffer;
+  /** HMAC key material for peer-to-peer authentication. Never sent anywhere. */
+  authKey: ArrayBuffer;
 };
 
 export async function deriveRoomKeys(secret: string, slug: string): Promise<RoomKeys> {
-  const [verifierBytes, mediaBytes] = await Promise.all([
+  const [verifierBytes, mediaBytes, authBytes] = await Promise.all([
     pbkdf2(secret, "verifier-v1", slug, 32),
     pbkdf2(secret, "media-v1", slug, 32),
+    pbkdf2(secret, "auth-v1", slug, 32),
   ]);
   return {
     verifier: base64url(verifierBytes),
-    // Return a copy: the underlying deriveBits buffer is fine, but callers
-    // may transfer this to a worker, so hand out a standalone ArrayBuffer.
+    // Return copies: callers may transfer these to a worker, so hand out
+    // standalone ArrayBuffers.
     mediaKey: mediaBytes.slice().buffer,
+    authKey: authBytes.slice().buffer,
   };
 }

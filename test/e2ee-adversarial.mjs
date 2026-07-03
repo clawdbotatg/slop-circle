@@ -67,37 +67,50 @@ async function joinRoom(wrongKey, isFirst) {
 
 const remoteWidths = page =>
   page.evaluate(() => [...document.querySelectorAll("video")].map(v => ({ w: v.videoWidth, muted: v.muted })));
+// "unverified peers" alert badge count (0 if none).
+const unverifiedCount = async page => {
+  const t = await page.textContent(".badge.alert").catch(() => null);
+  if (!t) return 0;
+  const m = t.match(/(\d+)\s+unverified/);
+  return m ? Number(m[1]) : 0;
+};
 
 const pageA = await joinRoom(false, true);
 const badge = await pageA.textContent(".badge");
 if (!badge || !badge.includes("sub rosa")) await fail(`legit peer badge not encrypted: "${badge}"`);
 console.log("A: badge =", badge.trim());
 
-await joinRoom(false, false); // B
-const pageC = await joinRoom(true, false); // wrong-key attacker
-console.log(`A, B, C joined room ${SLUG} (C has wrong media key)`);
+const pageB = await joinRoom(false, false); // B
+const pageC = await joinRoom(true, false); // wrong-key + wrong-auth attacker
+console.log(`A, B, C joined room ${SLUG} (C is injected: wrong media + auth keys)`);
 
 const deadline = Date.now() + 25000;
 let legitOk = false;
 let cRemoteEverDecoded = false;
+let aFlagsInjected = false;
+let bFlagsInjected = false;
 while (Date.now() < deadline) {
   const a = await remoteWidths(pageA);
   const c = await remoteWidths(pageC);
   const remoteDecoded = vs => vs.filter(v => !v.muted && v.w > 0).length >= 1;
   if (remoteDecoded(a)) legitOk = true;
   if (c.some(v => !v.muted && v.w > 0)) cRemoteEverDecoded = true;
-  if (legitOk && Date.now() > deadline - 15000) break;
+  if ((await unverifiedCount(pageA)) >= 1) aFlagsInjected = true;
+  if ((await unverifiedCount(pageB)) >= 1) bFlagsInjected = true;
+  if (legitOk && aFlagsInjected && bFlagsInjected && Date.now() > deadline - 12000) break;
   await new Promise(r => setTimeout(r, 500));
 }
 
-const a = await remoteWidths(pageA);
-const c = await remoteWidths(pageC);
-console.log("A videos:", JSON.stringify(a));
-console.log("C videos:", JSON.stringify(c));
+console.log("A videos:", JSON.stringify(await remoteWidths(pageA)));
+console.log("C videos:", JSON.stringify(await remoteWidths(pageC)));
+console.log("A/B flagged injected peer:", aFlagsInjected, bFlagsInjected);
 
 if (!legitOk) await fail("legit peers did not decode each other (encryption broke the happy path)");
 if (cRemoteEverDecoded) await fail("SECURITY: wrong-key peer decoded remote media — E2EE not enforced");
+if (!aFlagsInjected || !bFlagsInjected) await fail("injected peer was NOT flagged as unverified by legit peers");
 
-console.log("MILESTONE PASS: legit peers decode each other; wrong-key peer sees only ciphertext");
+console.log(
+  "MILESTONE PASS: legit peers decode each other and verify each other; injected peer decodes nothing and is flagged unverified",
+);
 await browser.close();
 process.exit(0);

@@ -135,6 +135,12 @@ header {
   background: #241f0f;
 }
 
+.badge.alert {
+  color: #f87171;
+  border-color: #5c1c1c;
+  background: #240f0f;
+}
+
 header nav {
   margin-left: auto;
   display: flex;

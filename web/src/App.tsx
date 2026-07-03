@@ -23,20 +23,25 @@ export default function App() {
   const [gateError, setGateError] = useState("");
   // Authed room carries the media key (never sent anywhere). The secret
   // itself lives only in the URL fragment.
-  const [room, setRoom] = useState<{ slug: string; mediaKey: ArrayBuffer } | null>(null);
-  const [pending, setPending] = useState<{ slug: string; verifier: string; mediaKey: ArrayBuffer } | null>(null);
+  const [room, setRoom] = useState<{ slug: string; mediaKey: ArrayBuffer; authKey: ArrayBuffer } | null>(null);
+  const [pending, setPending] = useState<{
+    slug: string;
+    verifier: string;
+    mediaKey: ArrayBuffer;
+    authKey: ArrayBuffer;
+  } | null>(null);
   const [slugInput, setSlugInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [handle, setHandle] = useState(() => localStorage.getItem("circle-handle") ?? "");
 
   const authRoom = useCallback(async (slug: string, secret: string) => {
-    const { verifier, mediaKey } = await deriveRoomKeys(secret, slug);
+    const { verifier, mediaKey, authKey } = await deriveRoomKeys(secret, slug);
     // Test seam: simulate an unauthorized peer (e.g. a relay-injected one)
-    // that knows the verifier but not the fragment secret, so it can't
-    // derive the media key.
-    const effectiveKey = (window as unknown as { __circleForceWrongKey?: boolean }).__circleForceWrongKey
-      ? crypto.getRandomValues(new Uint8Array(32)).buffer
-      : mediaKey;
+    // that knows the verifier but not the fragment secret, so it derives
+    // neither the media key nor the auth key.
+    const wrong = (window as unknown as { __circleForceWrongKey?: boolean }).__circleForceWrongKey === true;
+    const mKey = wrong ? crypto.getRandomValues(new Uint8Array(32)).buffer : mediaKey;
+    const aKey = wrong ? crypto.getRandomValues(new Uint8Array(32)).buffer : authKey;
     const res = await fetch(`/v1/rooms/${encodeURIComponent(slug)}/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -44,13 +49,13 @@ export default function App() {
       body: JSON.stringify({ password: verifier }), // verifier, never the secret
     });
     if (res.ok) {
-      setRoom({ slug, mediaKey: effectiveKey });
+      setRoom({ slug, mediaKey: mKey, authKey: aKey });
       location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("authed");
       return;
     }
     if (res.status === 404) {
-      setPending({ slug, verifier, mediaKey: effectiveKey });
+      setPending({ slug, verifier, mediaKey: mKey, authKey: aKey });
       location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("claim-offer");
       return;
@@ -69,7 +74,7 @@ export default function App() {
       body: JSON.stringify({ password: pending.verifier }),
     });
     if (res.ok) {
-      setRoom({ slug: pending.slug, mediaKey: pending.mediaKey });
+      setRoom({ slug: pending.slug, mediaKey: pending.mediaKey, authKey: pending.authKey });
       setGate("authed");
     } else {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -146,22 +151,27 @@ export default function App() {
     );
   }
 
-  return <Room slug={room.slug} mediaKey={room.mediaKey} handle={handle} setHandle={setHandle} />;
+  return (
+    <Room slug={room.slug} mediaKey={room.mediaKey} authKey={room.authKey} handle={handle} setHandle={setHandle} />
+  );
 }
 
 function Room({
   slug,
   mediaKey,
+  authKey,
   handle,
   setHandle,
 }: {
   slug: string;
   mediaKey: ArrayBuffer;
+  authKey: ArrayBuffer;
   handle: string;
   setHandle: (h: string) => void;
 }) {
   const label = handle || "anon";
-  const mesh = useMesh(true, slug, label, mediaKey);
+  const mesh = useMesh(true, slug, label, mediaKey, authKey);
+  const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
 
   const [streams, setStreams] = useState<LocalStreamHandle[]>([]);
   const streamsRef = useRef<LocalStreamHandle[]>(streams);
@@ -225,6 +235,14 @@ function Room({
         >
           {mesh.encrypted ? "🔒 sub rosa" : "⚠ not encrypted"}
         </span>
+        {failedPeers > 0 && (
+          <span
+            className="badge alert"
+            title="A peer could not prove knowledge of the room secret — possibly injected. It cannot decrypt any media."
+          >
+            ⚠ {failedPeers} unverified {failedPeers === 1 ? "peer" : "peers"}
+          </span>
+        )}
         <nav>
           {media.activeCamera ? (
             <button onClick={() => media.stop("camera")}>Stop camera</button>
@@ -247,23 +265,26 @@ function Room({
       </header>
       {media.error && <p className="err">{media.error}</p>}
       <main className="grid">
-        {tiles.map(({ pub, mine, stream }) =>
-          !stream ? (
+        {tiles.map(({ pub, mine, stream }) => {
+          const auth = mine ? "verified" : mesh.peerAuth[pub.peerId];
+          const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "… " : "";
+          const label = mine ? `${pub.label} (you)` : `${mark}${pub.label}`;
+          return !stream ? (
             <div key={pub.streamId} className="tile tile-waiting">
-              <span className="tile-label">{pub.label} (connecting…)</span>
+              <span className="tile-label">{mark}{pub.label} (connecting…)</span>
             </div>
           ) : pub.kind === "audio" ? (
-            <AudioTile key={pub.streamId} stream={stream} muted={mine} label={pub.label} />
+            <AudioTile key={pub.streamId} stream={stream} muted={mine} label={label} />
           ) : (
             <VideoTile
               key={pub.streamId}
               stream={stream}
               muted={mine}
-              label={mine ? `${pub.label} (you)` : pub.label}
+              label={label}
               mirrored={mine && pub.kind === "camera"}
             />
-          ),
-        )}
+          );
+        })}
         {tiles.length === 0 && (
           <div className="empty">
             <p>Nobody is sharing yet. Turn on your camera to circle up.</p>
