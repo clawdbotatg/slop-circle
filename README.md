@@ -40,9 +40,13 @@ creates the room), then paste the same link into the second and turn on
 your camera in both. Click **Wallet** to create a passkey identity and
 sign — no wallet software, no accounts.
 
-Two tabs on one machine connect directly. Two *different* people on
-different networks need a public HTTPS deployment plus a TURN server
-(coming in the deploy packaging).
+Two tabs on one machine connect directly. To test with **another person**
+you need a public HTTPS URL (browsers require HTTPS for camera + passkeys).
+Two ways, both in [deploy/DEPLOY.md](deploy/DEPLOY.md):
+- **Quick, no setup:** `npx cloudflared tunnel --url http://localhost:8788`
+  and share the HTTPS URL it prints.
+- **A real instance:** `docker compose up -d --build` on any box with a
+  domain (Caddy auto-HTTPS + optional TURN).
 
 ## What works today
 

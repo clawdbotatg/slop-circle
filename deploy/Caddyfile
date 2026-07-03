@@ -1,0 +1,8 @@
+# One domain → the relay (which serves both the client and the API/WS).
+# Caddy auto-provisions a Let's Encrypt cert on first start; WebSockets
+# (/signal) are upgraded automatically by reverse_proxy.
+
+{$CIRCLE_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy relay:8788
+}

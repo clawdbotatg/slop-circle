@@ -1,0 +1,58 @@
+# Spin up a public circle instance on any box with a domain:
+#
+#   1. Point an A record (your domain) at this box's IP.
+#   2. cp .env.example .env  and fill it in (domain, secrets, TURN IP).
+#   3. docker compose up -d --build
+#
+# Caddy fetches a Let's Encrypt cert automatically (ports 80+443 must be
+# open). TURN is optional — calls connect for ~85-90% of peer pairs on STUN
+# alone; enable the `turn` profile for the symmetric-NAT rest:
+#   docker compose --profile turn up -d --build
+
+services:
+  relay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      # REQUIRED in production — the relay refuses to boot with the dev
+      # fallback (it's the HMAC key for room-access cookies).
+      CIRCLE_SESSION_SECRET: ${CIRCLE_SESSION_SECRET:?set CIRCLE_SESSION_SECRET (openssl rand -hex 32)}
+      # Optional TURN (must match the coturn secret + this box's public IP).
+      TURN_SECRET: ${TURN_SECRET:-}
+      TURN_HOST: ${TURN_HOST:-}
+    volumes:
+      - circle-data:/data
+    expose:
+      - "8788"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [relay]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CIRCLE_DOMAIN: ${CIRCLE_DOMAIN:?set CIRCLE_DOMAIN (e.g. circle.example.org)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Optional TURN relay for symmetric-NAT peers. Host networking so the UDP
+  # relay port range is reachable (Linux). See deploy/coturn/turnserver.conf.
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    profiles: ["turn"]
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+
+volumes:
+  circle-data:
+  caddy-data:
+  caddy-config:
