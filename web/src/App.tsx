@@ -174,6 +174,15 @@ function Room({
   const mesh = useMesh(true, slug, label, mediaKey, authKey);
   const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
   const [walletOpen, setWalletOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyInvite = useCallback(() => {
+    // The full URL (incl. the #slug:secret fragment) IS the invite — the
+    // secret rides the fragment, which never touches the server.
+    void navigator.clipboard?.writeText(location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, []);
 
   const [streams, setStreams] = useState<LocalStreamHandle[]>([]);
   const streamsRef = useRef<LocalStreamHandle[]>(streams);
@@ -263,6 +272,7 @@ function Room({
               Mic only
             </button>
           )}
+          <button onClick={copyInvite}>{copied ? "link copied ✓" : "Copy invite link"}</button>
           <button onClick={() => setWalletOpen(true)}>Wallet</button>
         </nav>
       </header>
