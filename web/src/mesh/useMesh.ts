@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { decryptReceiver, encryptSender, frameCryptoSupported } from "../crypto/frameCrypto";
 
 // Adapted from slop-computer-live usePeerMesh.ts — media/mesh essentials
 // only (~700 of 4,692 lines). Full-mesh WebRTC: every peer connects to
@@ -71,18 +72,15 @@ function applySenderCaps(pc: RTCPeerConnection, stream: MediaStream, kind: Strea
     if (!streamTracks.has(sender.track)) continue;
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    // Mutate the existing encoding in place — spreading it copies read-only
+    // fields (rid/ssrc) which setParameters then rejects.
+    const enc = params.encodings[0];
     if (kind === "camera") {
-      params.encodings[0] = {
-        ...params.encodings[0],
-        maxBitrate: CAMERA_MAX_BITRATE,
-        maxFramerate: CAMERA_MAX_FRAMERATE,
-      };
+      enc.maxBitrate = CAMERA_MAX_BITRATE;
+      enc.maxFramerate = CAMERA_MAX_FRAMERATE;
     } else if (kind === "screen") {
-      params.encodings[0] = {
-        ...params.encodings[0],
-        maxBitrate: SCREEN_MAX_BITRATE,
-        maxFramerate: SCREEN_MAX_FRAMERATE,
-      };
+      enc.maxBitrate = SCREEN_MAX_BITRATE;
+      enc.maxFramerate = SCREEN_MAX_FRAMERATE;
     }
     sender.setParameters(params).catch(err => console.warn("[mesh] setParameters failed", err));
   }
@@ -92,11 +90,12 @@ function preferEfficientVideoCodecs(pc: RTCPeerConnection): void {
   if (typeof RTCRtpSender.getCapabilities !== "function") return;
   const caps = RTCRtpSender.getCapabilities("video");
   if (!caps?.codecs?.length) return;
-  const isPreferred = (mimeType: string) => /\/(VP9|H264)$/i.test(mimeType);
-  const preferred = caps.codecs.filter(c => isPreferred(c.mimeType));
-  if (preferred.length === 0) return;
-  const others = caps.codecs.filter(c => !isPreferred(c.mimeType));
-  const ordered = [...preferred, ...others];
+  // Prefer VP8 first: its RTP packetization (RFC 7741) treats the frame
+  // payload as opaque bytes, so per-frame encryption survives packetize/
+  // depacketize. H264's NAL-unit packetization parses the payload and breaks
+  // on ciphertext (frames never reassemble). VP9 second, H264 last.
+  const rank = (mimeType: string) => (/\/VP8$/i.test(mimeType) ? 0 : /\/VP9$/i.test(mimeType) ? 1 : 2);
+  const ordered = [...caps.codecs].sort((a, b) => rank(a.mimeType) - rank(b.mimeType));
   for (const transceiver of pc.getTransceivers()) {
     if (transceiver.receiver.track?.kind !== "video") continue;
     if (typeof transceiver.setCodecPreferences !== "function") continue;
@@ -115,6 +114,8 @@ export type MeshState = {
   connectError: string | null;
   remoteStreams: Map<string, MediaStream>;
   publications: Publication[];
+  /** True when media frames are end-to-end encrypted with the room key. */
+  encrypted: boolean;
   publish: (stream: MediaStream, kind: StreamKind, label: string) => void;
   unpublish: (streamId: string) => void;
   replaceTrack: (
@@ -125,7 +126,7 @@ export type MeshState = {
   setCameraOff: (streamId: string, off: boolean) => void;
 };
 
-export function useMesh(enabled: boolean, slug: string, label: string): MeshState {
+export function useMesh(enabled: boolean, slug: string, label: string, mediaKey: ArrayBuffer | null): MeshState {
   const [myId, setMyId] = useState<string | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [connected, setConnected] = useState(false);
@@ -136,10 +137,14 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
   const wsRef = useRef<WebSocket | null>(null);
   const myIdRef = useRef<string | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  // Perfect-negotiation bookkeeping: are we mid-offer to this peer?
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const localStreamsRef = useRef<Map<string, { stream: MediaStream; kind: StreamKind }>>(new Map());
   const iceConfigRef = useRef<RTCConfiguration>(FALLBACK_ICE);
   const labelRef = useRef(label);
   labelRef.current = label;
+  const mediaKeyRef = useRef(mediaKey);
+  mediaKeyRef.current = mediaKey;
 
   // Live mirrors so the watchdog interval reads fresh state without rebuilding.
   const publicationsRef = useRef<Publication[]>(publications);
@@ -168,32 +173,24 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
       }
     }
     peerConnectionsRef.current.delete(peerId);
+    makingOfferRef.current.delete(peerId);
   }, []);
-
-  const initiateOffer = useCallback(
-    async (peerId: string) => {
-      const pc = peerConnectionsRef.current.get(peerId);
-      if (!pc) return;
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        send({ type: "offer", to: peerId, payload: pc.localDescription!.toJSON() });
-      } catch (err) {
-        console.warn("[mesh] initiateOffer failed", err);
-      }
-    },
-    [send],
-  );
 
   const createPeerConnection = useCallback(
     (peerId: string): RTCPeerConnection => {
-      const pc = new RTCPeerConnection(iceConfigRef.current);
+      // encodedInsertableStreams is required by the legacy createEncodedStreams
+      // fallback path; ignored where RTCRtpScriptTransform is used.
+      const pc = new RTCPeerConnection({
+        ...iceConfigRef.current,
+        ...(mediaKeyRef.current ? { encodedInsertableStreams: true } : {}),
+      } as RTCConfiguration);
 
       // Attach existing local streams so newly-formed pcs get our media.
       for (const { stream, kind } of localStreamsRef.current.values()) {
         for (const track of stream.getTracks()) {
           try {
-            pc.addTrack(track, stream);
+            const sender = pc.addTrack(track, stream);
+            if (mediaKeyRef.current) encryptSender(sender, mediaKeyRef.current);
           } catch {
             /* track already added */
           }
@@ -203,6 +200,7 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
       preferEfficientVideoCodecs(pc);
 
       pc.ontrack = event => {
+        if (mediaKeyRef.current) decryptReceiver(event.receiver, mediaKeyRef.current);
         const stream = event.streams[0] ?? new MediaStream([event.track]);
         setRemoteStreams(prev => {
           if (prev.get(stream.id) === stream) return prev;
@@ -234,14 +232,25 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
         }
       };
 
-      pc.onnegotiationneeded = () => {
-        if (pc.signalingState === "stable") void initiateOffer(peerId);
+      // Perfect negotiation: whoever's media changes fires an offer; glare
+      // is resolved by the polite/impolite rule in handleOffer. Both peers
+      // may offer at once safely.
+      pc.onnegotiationneeded = async () => {
+        try {
+          makingOfferRef.current.set(peerId, true);
+          await pc.setLocalDescription(); // implicit createOffer
+          send({ type: "offer", to: peerId, payload: pc.localDescription!.toJSON() });
+        } catch (err) {
+          console.warn("[mesh] onnegotiationneeded failed", err);
+        } finally {
+          makingOfferRef.current.set(peerId, false);
+        }
       };
 
       peerConnectionsRef.current.set(peerId, pc);
       return pc;
     },
-    [send, closePeerConnection, initiateOffer],
+    [send, closePeerConnection],
   );
 
   const handleOffer = useCallback(
@@ -258,13 +267,21 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
         pc = undefined;
       }
       if (!pc) pc = createPeerConnection(from);
+
+      // Perfect-negotiation glare handling: the higher-id peer is "polite".
+      // On a collision the impolite peer ignores the incoming offer (its own
+      // offer wins); the polite peer yields (setRemoteDescription implicitly
+      // rolls back its own offer in modern browsers).
+      const meId = myIdRef.current ?? "";
+      const polite = meId > from;
+      const collision = makingOfferRef.current.get(from) === true || pc.signalingState !== "stable";
+      if (!polite && collision) return; // impolite: ignore, our offer stands
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(payload));
         // setRemoteDescription may have spun up new transceivers — apply
         // codec prefs before answering.
         preferEfficientVideoCodecs(pc);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        await pc.setLocalDescription(); // implicit createAnswer
         send({ type: "answer", to: from, payload: pc.localDescription!.toJSON() });
       } catch (err) {
         console.warn("[mesh] handleOffer failed", err);
@@ -276,6 +293,8 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
   const handleAnswer = useCallback(async (from: string, payload: RTCSessionDescriptionInit) => {
     const pc = peerConnectionsRef.current.get(from);
     if (!pc) return;
+    // Ignore a stray answer when we're not expecting one (glare aftermath).
+    if (pc.signalingState !== "have-local-offer") return;
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(payload));
     } catch (err) {
@@ -289,9 +308,28 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
     try {
       await pc.addIceCandidate(new RTCIceCandidate(payload));
     } catch {
-      /* stale candidate */
+      /* stale candidate (or dropped during glare rollback) */
     }
   }, []);
+
+  // Force an offer even with no local media — used by the watchdog to
+  // re-establish a stuck connection so we can keep receiving a peer.
+  const forceOffer = useCallback(
+    async (peerId: string) => {
+      const pc = peerConnectionsRef.current.get(peerId);
+      if (!pc) return;
+      try {
+        makingOfferRef.current.set(peerId, true);
+        await pc.setLocalDescription();
+        send({ type: "offer", to: peerId, payload: pc.localDescription!.toJSON() });
+      } catch (err) {
+        console.warn("[mesh] forceOffer failed", err);
+      } finally {
+        makingOfferRef.current.set(peerId, false);
+      }
+    },
+    [send],
+  );
 
   const publish = useCallback(
     (stream: MediaStream, kind: StreamKind, pubLabel: string) => {
@@ -300,7 +338,8 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
       for (const pc of peerConnectionsRef.current.values()) {
         for (const track of stream.getTracks()) {
           try {
-            pc.addTrack(track, stream);
+            const sender = pc.addTrack(track, stream);
+            if (mediaKeyRef.current) encryptSender(sender, mediaKeyRef.current);
           } catch {
             /* duplicate */
           }
@@ -439,24 +478,16 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
           setPeers([...others, { id: meId, handle: labelRef.current }]);
           if (Array.isArray(msg.publications)) setPublications(msg.publications as Publication[]);
           teardownConnections();
-          // Offerer election: lower id initiates.
-          for (const peer of others) {
-            if (peer.id < meId) {
-              createPeerConnection(peer.id);
-              void initiateOffer(peer.id);
-            }
-          }
+          // Both peers create the connection; offers flow from
+          // onnegotiationneeded and glare is handled politely.
+          for (const peer of others) createPeerConnection(peer.id);
           return;
         }
 
         if (msg.type === "peer_join" && msg.peer) {
           const peer = msg.peer as Peer;
           setPeers(prev => (prev.some(p => p.id === peer.id) ? prev : [...prev, peer]));
-          const meIdNow = myIdRef.current;
-          if (meIdNow && peer.id < meIdNow) {
-            createPeerConnection(peer.id);
-            void initiateOffer(peer.id);
-          }
+          createPeerConnection(peer.id);
           return;
         }
 
@@ -550,7 +581,7 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
       wsRef.current = null;
       teardownConnections();
     };
-  }, [enabled, slug, createPeerConnection, closePeerConnection, handleOffer, handleAnswer, handleIce, initiateOffer]);
+  }, [enabled, slug, createPeerConnection, closePeerConnection, handleOffer, handleAnswer, handleIce]);
 
   // Stream watchdog: a publication with no matching remote stream for too
   // long means a stuck pc — rebuild it and force a fresh offer (the one
@@ -591,7 +622,7 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
         );
         closePeerConnection(pub.peerId);
         createPeerConnection(pub.peerId);
-        void initiateOffer(pub.peerId);
+        void forceOffer(pub.peerId);
       }
       for (const sid of missingSince.keys()) {
         if (!liveStreamIds.has(sid)) missingSince.delete(sid);
@@ -599,7 +630,7 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
     };
     const handle = setInterval(tick, STREAM_WATCHDOG_INTERVAL_MS);
     return () => clearInterval(handle);
-  }, [enabled, closePeerConnection, createPeerConnection, initiateOffer]);
+  }, [enabled, closePeerConnection, createPeerConnection, forceOffer]);
 
   return {
     myId,
@@ -608,6 +639,7 @@ export function useMesh(enabled: boolean, slug: string, label: string): MeshStat
     connectError,
     remoteStreams,
     publications,
+    encrypted: mediaKey !== null && frameCryptoSupported(),
     publish,
     unpublish,
     replaceTrack,

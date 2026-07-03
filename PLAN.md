@@ -285,6 +285,28 @@ What this protects, and from whom:
   frame encryption, client-side room secret (verifier/PAKE), authenticated
   peer list, `SignalTransport` interface, trust badges in the UI.
   Milestone: a deliberately malicious relay demonstrably gets nothing.
+  - **Done (2026-07-02):** the room secret lives only in the URL fragment;
+    the client derives a **verifier** (sent to the relay as the "password",
+    scrypt-hashed there) and a **media key** (never sent) via PBKDF2 with
+    distinct salt labels (`crypto/roomKeys.ts`). Every media frame is
+    AES-GCM encrypted via insertable streams — `createEncodedStreams`
+    (Chromium) or `RTCRtpScriptTransform` worker (Safari), sharing one
+    cipher (`crypto/frameCipher.ts`, header bytes left clear, VP8 preferred
+    so packetization survives). Trust badge shows 🔒 sub rosa. The mesh was
+    upgraded to **perfect negotiation** (glare-safe). Verified by
+    `test/e2ee-adversarial.mjs`: a wrong-key peer (knows the verifier, not
+    the secret — i.e. a relay-injected peer) receives tracks but decodes
+    **nothing**, while legit peers decode each other.
+  - **Still open in Phase 1:** (a) send only the verifier — today the client
+    derives it but the join UI still holds the secret in memory (fine, it's
+    the fragment) — consider a PAKE so the verifier isn't even replayable;
+    (b) **authenticated peer list** — peers prove knowledge of the secret to
+    *each other* over a data channel so the server can't inject a silent
+    participant (frame encryption already denies it media; this denies it
+    presence + gates future data channels); (c) **`SignalTransport`
+    interface** so relay/Waku/copy-paste are swappable; (d) verify the
+    Safari worker path hands-on (only the Chromium `createEncodedStreams`
+    path is tested so far).
 - **Phase 2 — the circle.** Vendor the multisig contracts + signing UI.
   Passkey join, wallet-signers room gate, propose/sign/execute over data
   channels, facilitator (optional module), configurable RPC URL.

@@ -116,6 +116,25 @@ header {
   color: #4ade80;
 }
 
+.badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.badge.sub-rosa {
+  color: #4ade80;
+  border-color: #1c5c37;
+  background: #0f2419;
+}
+
+.badge.warn {
+  color: #fbbf24;
+  border-color: #5c4a1c;
+  background: #241f0f;
+}
+
 header nav {
   margin-left: auto;
   display: flex;

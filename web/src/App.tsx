@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { deriveRoomKeys } from "./crypto/roomKeys";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
 import { AudioTile, VideoTile } from "./ui/StreamView";
@@ -20,26 +21,37 @@ type Gate = "checking" | "join-form" | "claim-offer" | "authed" | "error";
 export default function App() {
   const [gate, setGate] = useState<Gate>("checking");
   const [gateError, setGateError] = useState("");
-  const [room, setRoom] = useState<{ slug: string; password: string } | null>(null);
+  // Authed room carries the media key (never sent anywhere). The secret
+  // itself lives only in the URL fragment.
+  const [room, setRoom] = useState<{ slug: string; mediaKey: ArrayBuffer } | null>(null);
+  const [pending, setPending] = useState<{ slug: string; verifier: string; mediaKey: ArrayBuffer } | null>(null);
   const [slugInput, setSlugInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [handle, setHandle] = useState(() => localStorage.getItem("circle-handle") ?? "");
 
-  const authRoom = useCallback(async (slug: string, password: string) => {
+  const authRoom = useCallback(async (slug: string, secret: string) => {
+    const { verifier, mediaKey } = await deriveRoomKeys(secret, slug);
+    // Test seam: simulate an unauthorized peer (e.g. a relay-injected one)
+    // that knows the verifier but not the fragment secret, so it can't
+    // derive the media key.
+    const effectiveKey = (window as unknown as { __circleForceWrongKey?: boolean }).__circleForceWrongKey
+      ? crypto.getRandomValues(new Uint8Array(32)).buffer
+      : mediaKey;
     const res = await fetch(`/v1/rooms/${encodeURIComponent(slug)}/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password: verifier }), // verifier, never the secret
     });
     if (res.ok) {
-      setRoom({ slug, password });
-      location.hash = `${slug}:${encodeURIComponent(password)}`;
+      setRoom({ slug, mediaKey: effectiveKey });
+      location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("authed");
       return;
     }
     if (res.status === 404) {
-      setRoom({ slug, password });
+      setPending({ slug, verifier, mediaKey: effectiveKey });
+      location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("claim-offer");
       return;
     }
@@ -49,22 +61,22 @@ export default function App() {
   }, []);
 
   const claimRoom = useCallback(async () => {
-    if (!room) return;
-    const res = await fetch(`/v1/rooms/${encodeURIComponent(room.slug)}/claim`, {
+    if (!pending) return;
+    const res = await fetch(`/v1/rooms/${encodeURIComponent(pending.slug)}/claim`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ password: room.password }),
+      body: JSON.stringify({ password: pending.verifier }),
     });
     if (res.ok) {
-      location.hash = `${room.slug}:${encodeURIComponent(room.password)}`;
+      setRoom({ slug: pending.slug, mediaKey: pending.mediaKey });
       setGate("authed");
     } else {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       setGateError(body.error ?? `claim failed (${res.status})`);
       setGate("join-form");
     }
-  }, [room]);
+  }, [pending]);
 
   useEffect(() => {
     const frag = parseFragment();
@@ -78,13 +90,13 @@ export default function App() {
 
   if (gate === "checking") return <div className="center">…</div>;
 
-  if (gate === "claim-offer" && room) {
+  if (gate === "claim-offer" && pending) {
     return (
       <div className="center">
         <div className="card">
           <h1>circle</h1>
           <p>
-            Room <b>{room.slug}</b> doesn't exist yet.
+            Room <b>{pending.slug}</b> doesn't exist yet.
           </p>
           <p>Create it with this password? Everyone with the link can enter.</p>
           <button onClick={() => void claimRoom()}>Create room</button>
@@ -134,20 +146,22 @@ export default function App() {
     );
   }
 
-  return <Room slug={room.slug} handle={handle} setHandle={setHandle} />;
+  return <Room slug={room.slug} mediaKey={room.mediaKey} handle={handle} setHandle={setHandle} />;
 }
 
 function Room({
   slug,
+  mediaKey,
   handle,
   setHandle,
 }: {
   slug: string;
+  mediaKey: ArrayBuffer;
   handle: string;
   setHandle: (h: string) => void;
 }) {
   const label = handle || "anon";
-  const mesh = useMesh(true, slug, label);
+  const mesh = useMesh(true, slug, label, mediaKey);
 
   const [streams, setStreams] = useState<LocalStreamHandle[]>([]);
   const streamsRef = useRef<LocalStreamHandle[]>(streams);
@@ -200,6 +214,16 @@ function Room({
         />
         <span className={mesh.connected ? "status ok" : "status"}>
           {mesh.connected ? `${mesh.peers.length} here` : mesh.connectError ?? "connecting…"}
+        </span>
+        <span
+          className={mesh.encrypted ? "badge sub-rosa" : "badge warn"}
+          title={
+            mesh.encrypted
+              ? "Media is end-to-end encrypted with the room key. The server sees only ciphertext."
+              : "Frame encryption unavailable in this browser — the transport is not end-to-end encrypted."
+          }
+        >
+          {mesh.encrypted ? "🔒 sub rosa" : "⚠ not encrypted"}
         </span>
         <nav>
           {media.activeCamera ? (
