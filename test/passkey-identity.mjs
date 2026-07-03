@@ -77,6 +77,18 @@ const addr1 = (await page.textContent(".wallet-addr"))?.trim() ?? "";
 if (!/^0x[0-9a-f]{40}$/i.test(addr1)) await fail(`invalid passkey address: "${addr1}"`);
 console.log("passkey identity:", addr1);
 
+// The passkey must be able to SIGN an exec hash, and the signature must
+// cryptographically verify against its own public key (chain-free proof
+// that the signing path — WebAuthn get, DER parse, low-S, encode — works).
+await page.click("text=Test signer");
+await page.waitForSelector(".wallet-signer-ok, .err", { timeout: 10000 });
+const okShown = await page.$(".wallet-signer-ok");
+if (!okShown) {
+  const e = await page.textContent(".err").catch(() => "");
+  await fail(`signer test did not pass: ${e}`);
+}
+console.log("signer self-verify: signature valid ✓");
+
 // Persistence: reload, reopen wallet — same identity (loaded from storage).
 await page.reload();
 await page.waitForSelector("header .roomname", { timeout: 6000 }).catch(() => {});

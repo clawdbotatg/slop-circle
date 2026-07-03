@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatEther, type Address } from "viem";
-import { createPasskey, loadLastPasskeyIdentity, type PasskeyIdentity } from "./passkey";
+import { createPasskey, loadLastPasskeyIdentity, signExecHashWithPasskey, type PasskeyIdentity } from "./passkey";
+import { keccak256, stringToBytes, type Hex } from "viem";
 import { predictPersonalWalletAddress } from "./multisig";
 import {
   chainName,
@@ -31,6 +32,26 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
   const [personalAddr, setPersonalAddr] = useState<Address | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [derivErr, setDerivErr] = useState("");
+
+  const [signTest, setSignTest] = useState<"idle" | "signing" | "ok" | "fail">("idle");
+  const testSigner = useCallback(async () => {
+    if (!identity) return;
+    setSignTest("signing");
+    try {
+      // Sign a throwaway exec hash and let signExecHashWithPasskey verify the
+      // P-256 signature against our own key. Proves the passkey can sign.
+      const execHash = keccak256(stringToBytes("circle-signer-selftest:" + Date.now())) as Hex;
+      await signExecHashWithPasskey({
+        credentialIdBase64Url: identity.credentialIdBase64Url,
+        execHash,
+        qx: identity.qx,
+        qy: identity.qy,
+      });
+      setSignTest("ok");
+    } catch {
+      setSignTest("fail");
+    }
+  }, [identity]);
 
   const create = useCallback(async () => {
     setBusy(true);
@@ -114,6 +135,11 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
               This is an on-chain multisig <b>signer</b>, not a place to receive funds (a raw passkey address is
               unspendable). Your spendable address is the personal wallet below.
             </p>
+            <button onClick={() => void testSigner()} disabled={signTest === "signing"}>
+              {signTest === "signing" ? "Signing…" : "Test signer"}
+            </button>
+            {signTest === "ok" && <p className="wallet-signer-ok">signature valid ✓</p>}
+            {signTest === "fail" && <p className="err">signer test failed</p>}
 
             <label>Personal wallet (receive here)</label>
             {personalAddr ? (

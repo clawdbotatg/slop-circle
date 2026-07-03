@@ -268,3 +268,8 @@ header nav button {
   font-size: 1.1rem;
   color: #4ade80;
 }
+
+.wallet-signer-ok {
+  color: #4ade80;
+  font-size: 0.85rem;
+}
