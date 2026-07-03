@@ -4,4 +4,5 @@ dist/
 .env.*
 *.local
 .circle-data/
+.circle-secret
 .DS_Store

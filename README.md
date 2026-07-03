@@ -26,17 +26,49 @@ is in [PLAN.md](PLAN.md).
   rungs coexist in one room.
 - **No cloud AI. No telemetry. No analytics.**
 
+## Run it
+
+```bash
+npm install
+npm start
+```
+
+Then open **http://localhost:8788** (use `localhost`, not `127.0.0.1` —
+passkeys need a real domain or `localhost`). To test a call, open it in
+**two browser tabs**: pick a room name + password in the first (that
+creates the room), then paste the same link into the second and turn on
+your camera in both. Click **Wallet** to create a passkey identity and
+sign — no wallet software, no accounts.
+
+Two tabs on one machine connect directly. Two *different* people on
+different networks need a public HTTPS deployment plus a TURN server
+(coming in the deploy packaging).
+
+## What works today
+
+- **End-to-end-encrypted mesh video/audio/screen** — media is
+  peer-to-peer and every frame is encrypted with a key derived from the
+  room secret in the URL fragment, which never reaches the server. A
+  malicious relay sees only ciphertext (proven by `test/e2ee-adversarial.mjs`).
+- **Authenticated peers** — each peer proves it knows the room secret;
+  an injected peer is flagged and can't decrypt anything.
+- **Passkey wallet identity** — create an on-chain multisig signer with
+  Face ID / Touch ID, see your counterfactual personal-wallet address and
+  balance, and sign (self-verified). Propose/execute over the mesh and the
+  wallet-signers room gate are in progress.
+
 ## Status
 
-**Phase 0 — extraction.** Carving the media-only WebRTC mesh and a
-minimal relay out of slop-computer-live. Milestone: two browsers, one
-password link, a video call through a relay that holds nothing.
+Phases 0–1 complete (E2EE mesh + authenticated peers + swappable
+transport); Phase 2 (the multisig circle) in progress. See
+[PLAN.md](PLAN.md).
 
 ## Layout
 
 ```
 relay/   the disposable signaling server (~small, blind, stateless-ish)
 web/     the static client (Vite) — destined for IPFS + ENS
+test/    end-to-end tests (headless Chromium + virtual WebAuthn)
 ```
 
 ## License
