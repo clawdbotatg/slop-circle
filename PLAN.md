@@ -297,16 +297,25 @@ What this protects, and from whom:
     `test/e2ee-adversarial.mjs`: a wrong-key peer (knows the verifier, not
     the secret — i.e. a relay-injected peer) receives tracks but decodes
     **nothing**, while legit peers decode each other.
-  - **Still open in Phase 1:** (a) send only the verifier — today the client
-    derives it but the join UI still holds the secret in memory (fine, it's
-    the fragment) — consider a PAKE so the verifier isn't even replayable;
-    (b) **authenticated peer list** — peers prove knowledge of the secret to
-    *each other* over a data channel so the server can't inject a silent
-    participant (frame encryption already denies it media; this denies it
-    presence + gates future data channels); (c) **`SignalTransport`
-    interface** so relay/Waku/copy-paste are swappable; (d) verify the
-    Safari worker path hands-on (only the Chromium `createEncodedStreams`
-    path is tested so far).
+  - **Also done (2026-07-03): authenticated peer list.** A third key
+    (authKey) is derived from the fragment secret; over a per-pair WebRTC
+    data channel peers run a mutual challenge-response HMAC handshake
+    (directional proofs over sender-id + fresh nonces — not echoable, not
+    replayable). Each peer is tracked verified/pending/failed and surfaced
+    in the UI (an "unverified peers" alert + per-tile marks). This is the
+    structural replacement for the deleted god-mode: a relay can't inject a
+    silent participant — frame encryption denies it media, peer-auth denies
+    it presence. `test/e2ee-adversarial.mjs` asserts the injected peer is
+    flagged by both legit peers, who verify each other.
+  - **Also done (2026-07-03): `SignalTransport` interface.** The WS wire
+    lives behind `mesh/signalTransport.ts` (`RelayTransport` = impl #1);
+    the mesh consumes it via typed handlers. Waku and copy-paste-SDP
+    transports can slot in without touching mesh logic. No behavior change
+    (adversarial test still green through the indirection).
+  - **Still open in Phase 1:** (a) optional PAKE so the verifier isn't even
+    replayable to the server; (b) verify the Safari `RTCRtpScriptTransform`
+    worker path hands-on (only the Chromium `createEncodedStreams` path is
+    tested so far). Both minor; Phase 1's security milestone is met.
 - **Phase 2 — the circle.** Vendor the multisig contracts + signing UI.
   Passkey join, wallet-signers room gate, propose/sign/execute over data
   channels, facilitator (optional module), configurable RPC URL.

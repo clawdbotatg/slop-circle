@@ -1,32 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { decryptReceiver, encryptSender, frameCryptoSupported } from "../crypto/frameCrypto";
+import type { Peer, Publication, StreamKind } from "./meshTypes";
 import { runPeerAuth, type PeerAuthResult } from "./peerAuth";
+import { RelayTransport, type SignalTransport } from "./signalTransport";
 
+export type { Peer, Publication, StreamKind } from "./meshTypes";
 export type PeerAuthState = "pending" | PeerAuthResult;
 
 // Adapted from slop-computer-live usePeerMesh.ts — media/mesh essentials
-// only (~700 of 4,692 lines). Full-mesh WebRTC: every peer connects to
-// every other peer; the relay only forwards signaling. Glare is avoided
-// deterministically: only the peer with the lexicographically-lower id
-// initiates offers (the watchdog force-initiates as the one exception).
-
-export type StreamKind = "camera" | "screen" | "audio";
-
-export type Publication = {
-  streamId: string;
-  peerId: string; // ephemeral, per-connection
-  kind: StreamKind;
-  label: string;
-  cameraOff?: boolean;
-};
-
-export type Peer = {
-  id: string;
-  handle: string | null;
-};
-
-const PING_INTERVAL_MS = 10_000;
-const RECONNECT_DELAY_MS = 2000;
+// only. Full-mesh WebRTC over a swappable SignalTransport: every peer
+// connects to every other peer; the transport only routes signaling.
+// Perfect negotiation handles offer glare (both peers may offer at once).
 
 const STREAM_WATCHDOG_INTERVAL_MS = 2000;
 const STREAM_WAIT_TIMEOUT_MS = 6000; // grace before a pub counts as stuck
@@ -146,7 +130,8 @@ export function useMesh(
   const [publications, setPublications] = useState<Publication[]>([]);
   const [peerAuth, setPeerAuth] = useState<Record<string, PeerAuthState>>({});
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const transportRef = useRef<SignalTransport | null>(null);
+  const connectedRef = useRef(false);
   const myIdRef = useRef<string | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   // Perfect-negotiation bookkeeping: are we mid-offer to this peer?
@@ -181,8 +166,7 @@ export function useMesh(
   peersRef.current = peers;
 
   const send = useCallback((msg: object) => {
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    transportRef.current?.send(msg);
   }, []);
 
   const closePeerConnection = useCallback((peerId: string) => {
@@ -470,9 +454,7 @@ export function useMesh(
   // WebSocket connect / reconnect / message dispatch.
   useEffect(() => {
     if (!enabled) return;
-    let cancelled = false;
-    let pingTimer: ReturnType<typeof setInterval> | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
 
     const teardownConnections = () => {
       peerConnectionsRef.current.forEach(pc => {
@@ -487,146 +469,81 @@ export function useMesh(
       setPeerAuth({});
     };
 
-    const connect = async () => {
-      if (cancelled) return;
-      iceConfigRef.current = await fetchIceConfig(slug);
-      if (cancelled) return;
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${proto}://${location.host}/signal?slug=${encodeURIComponent(slug)}`);
-      wsRef.current = ws;
+    const transport = new RelayTransport(slug);
+    transportRef.current = transport;
 
-      ws.onopen = () => {
-        if (cancelled) return;
+    // Prime the ICE config (TURN creds) before peers form. Best-effort:
+    // falls back to STUN-only if the relay has no TURN configured.
+    void fetchIceConfig(slug).then(cfg => {
+      if (!disposed) iceConfigRef.current = cfg;
+    });
+
+    transport.start({
+      onOpen: () => {
+        connectedRef.current = true;
         setConnected(true);
         setConnectError(null);
-        ws.send(JSON.stringify({ type: "hello" }));
-        pingTimer = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-        }, PING_INTERVAL_MS);
         // Re-announce local streams (e.g. after reconnect).
         for (const [streamId, { kind }] of localStreamsRef.current) {
-          ws.send(JSON.stringify({ type: "publish", streamId, kind, label: labelRef.current }));
+          transport.send({ type: "publish", streamId, kind, label: labelRef.current });
         }
-      };
-
-      ws.onmessage = ev => {
-        if (cancelled) return;
-        let msg: { type?: string; [k: string]: unknown };
-        try {
-          msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
-        } catch {
-          return;
-        }
-
-        if (msg.type === "hello" && typeof msg.id === "string" && Array.isArray(msg.peers)) {
-          const meId = msg.id;
-          const others = msg.peers as Peer[];
-          myIdRef.current = meId;
-          setMyId(meId);
-          setPeers([...others, { id: meId, handle: labelRef.current }]);
-          if (Array.isArray(msg.publications)) setPublications(msg.publications as Publication[]);
-          teardownConnections();
-          // Both peers create the connection; offers flow from
-          // onnegotiationneeded and glare is handled politely.
-          for (const peer of others) createPeerConnection(peer.id);
-          return;
-        }
-
-        if (msg.type === "peer_join" && msg.peer) {
-          const peer = msg.peer as Peer;
-          setPeers(prev => (prev.some(p => p.id === peer.id) ? prev : [...prev, peer]));
-          createPeerConnection(peer.id);
-          return;
-        }
-
-        if (msg.type === "peer_leave" && msg.peer) {
-          const peer = msg.peer as Peer;
-          setPeers(prev => prev.filter(p => p.id !== peer.id));
-          closePeerConnection(peer.id);
-          return;
-        }
-
-        if (msg.type === "signal") {
-          const kind = msg.kind as string;
-          const from = msg.from as string;
-          const payload = msg.payload as RTCSessionDescriptionInit | RTCIceCandidateInit;
-          if (kind === "offer") void handleOffer(from, payload as RTCSessionDescriptionInit);
-          else if (kind === "answer") void handleAnswer(from, payload as RTCSessionDescriptionInit);
-          else if (kind === "ice") void handleIce(from, payload as RTCIceCandidateInit);
-          return;
-        }
-
-        if (msg.type === "published" && msg.publication) {
-          const pub = msg.publication as Publication;
-          setPublications(prev => {
-            const next = prev.filter(p => !(p.peerId === pub.peerId && p.streamId === pub.streamId));
-            next.push(pub);
-            return next;
-          });
-          return;
-        }
-
-        if (msg.type === "unpublished" && typeof msg.peerId === "string" && typeof msg.streamId === "string") {
-          const pid = msg.peerId as string;
-          const sid = msg.streamId as string;
-          setPublications(prev => prev.filter(p => !(p.peerId === pid && p.streamId === sid)));
-          setRemoteStreams(prev => {
-            if (!prev.has(sid)) return prev;
-            const next = new Map(prev);
-            next.delete(sid);
-            return next;
-          });
-          return;
-        }
-        // pong and unknown types: ignore.
-      };
-
-      ws.onclose = ev => {
-        if (pingTimer) {
-          clearInterval(pingTimer);
-          pingTimer = null;
-        }
+      },
+      onClose: reason => {
+        connectedRef.current = false;
         setConnected(false);
-        const GATE_CLOSE_CODES: Record<number, string> = {
-          4401: "unauthenticated",
-          4403: "room-auth-required",
-          4404: "room-not-found",
-        };
-        const gateReason = GATE_CLOSE_CODES[ev.code];
-        if (gateReason) {
-          setConnectError(gateReason);
-          cancelled = true;
-        }
+        if (reason) setConnectError(reason);
         setMyId(null);
         myIdRef.current = null;
         teardownConnections();
         setPeers([]);
         setPublications([]);
-        if (cancelled) return;
-        reconnectTimer = setTimeout(() => void connect(), RECONNECT_DELAY_MS);
-      };
-
-      ws.onerror = () => {
-        try {
-          ws.close();
-        } catch {
-          /* ignore */
-        }
-      };
-    };
-
-    void connect();
+      },
+      onHello: (id, others, pubs) => {
+        myIdRef.current = id;
+        setMyId(id);
+        setPeers([...others, { id, handle: labelRef.current }]);
+        setPublications(pubs);
+        teardownConnections();
+        // Both peers create the connection; offers flow from
+        // onnegotiationneeded and glare is handled politely.
+        for (const peer of others) createPeerConnection(peer.id);
+      },
+      onPeerJoin: peer => {
+        setPeers(prev => (prev.some(p => p.id === peer.id) ? prev : [...prev, peer]));
+        createPeerConnection(peer.id);
+      },
+      onPeerLeave: peer => {
+        setPeers(prev => prev.filter(p => p.id !== peer.id));
+        closePeerConnection(peer.id);
+      },
+      onSignal: (from, kind, payload) => {
+        if (kind === "offer") void handleOffer(from, payload as RTCSessionDescriptionInit);
+        else if (kind === "answer") void handleAnswer(from, payload as RTCSessionDescriptionInit);
+        else if (kind === "ice") void handleIce(from, payload as RTCIceCandidateInit);
+      },
+      onPublished: pub => {
+        setPublications(prev => {
+          const next = prev.filter(p => !(p.peerId === pub.peerId && p.streamId === pub.streamId));
+          next.push(pub);
+          return next;
+        });
+      },
+      onUnpublished: (pid, sid) => {
+        setPublications(prev => prev.filter(p => !(p.peerId === pid && p.streamId === sid)));
+        setRemoteStreams(prev => {
+          if (!prev.has(sid)) return prev;
+          const next = new Map(prev);
+          next.delete(sid);
+          return next;
+        });
+      },
+    });
 
     return () => {
-      cancelled = true;
-      if (pingTimer) clearInterval(pingTimer);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      try {
-        wsRef.current?.close();
-      } catch {
-        /* ignore */
-      }
-      wsRef.current = null;
+      disposed = true;
+      connectedRef.current = false;
+      transport.close();
+      transportRef.current = null;
       teardownConnections();
     };
   }, [enabled, slug, createPeerConnection, closePeerConnection, handleOffer, handleAnswer, handleIce]);
@@ -641,7 +558,7 @@ export function useMesh(
     const tick = () => {
       const meId = myIdRef.current;
       if (!meId) return;
-      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      if (!connectedRef.current) return;
       const now = performance.now();
       const liveStreamIds = new Set<string>();
       for (const pub of publicationsRef.current) {
