@@ -104,9 +104,18 @@ end-to-end encrypted.
   balance, and sign — self-verified.
 - **Shared circle wallet.** Propose a transaction from the room's multisig;
   members co-sign it over the encrypted bus until the threshold is met
-  ("2 / 2 signed — ready to execute"). Everything up to the final on-chain
-  broadcast works today; broadcasting the met-threshold transaction needs a
-  funded key (the next step) — see [PLAN.md](PLAN.md).
+  ("2 / 2 signed — ready to execute"), then **Execute** broadcasts it. The
+  broadcast goes out through a member's browser wallet (someone with ETH for
+  gas) — everything else is passkeys-only. All of it works today except that
+  the broadcast obviously needs a funded wallet + a real deployed room
+  multisig; see [PLAN.md](PLAN.md).
+- **Encrypted chat + roster.** Text the room over the same encrypted bus;
+  see who's present.
+- **Meeting controls.** Camera, screen-share, mic, mute, copy-invite-link,
+  and leave.
+
+Verified end to end by `test/` (headless Chromium + virtual WebAuthn). With
+the app running: `bash test/run-all.sh`.
 
 ## Try it locally first (single machine, no sharing)
 

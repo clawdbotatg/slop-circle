@@ -347,11 +347,20 @@ What this protects, and from whom:
     signatures to threshold → "ready to execute". Verified end-to-end by
     `test/cosign.mjs`: two passkey members reach 2/2. Chain-free
     (counterfactual nonce 0).
-  - **Still open in Phase 2 (needs a chain — funded key or a fork):** the
-    final `execTransaction` **broadcast** of a met-threshold proposal (one
-    call once funded), the wallet-signers room gate (relay reads signer set
-    on-chain), and the optional gas facilitator. No local chain here
-    (foundry install is blocked by sandbox policy).
+  - **Done (2026-07-03) — Execute path + chat + meeting controls.** The
+    Execute button assembles `execTransaction` (calldata verified by an
+    encode/decode round-trip) and broadcasts a met-threshold proposal via a
+    member's browser wallet (`wallet/execute.ts`). Encrypted chat + roster
+    ride the same bus (`ui/ChatPanel.tsx`). Mute / leave / copy-invite-link
+    controls added. `test/run-all.sh` runs all four suites green against a
+    fresh relay.
+  - **Genuinely still open (needs a chain / real fixtures):** actually
+    landing the Execute broadcast on-chain (needs a funded browser wallet +
+    a real deployed room multisig — code is done, the send is yours to
+    trigger), the wallet-signers room gate (relay reads signer set on-chain),
+    and the optional gas facilitator so passkey-only members can broadcast
+    without anyone having an EOA. No local chain here (foundry install
+    blocked by sandbox policy).
 - **Phase 3 — the ladder.** Share-your-node RPC over data channels, quorum
   with block pinning + room-visible disagreement, IPFS/ENS deployment of
   the client, one-command server (docker compose: relay + coturn).

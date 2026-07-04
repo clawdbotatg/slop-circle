@@ -3,6 +3,7 @@ import { formatEther, type Address } from "viem";
 import { createPasskey, loadLastPasskeyIdentity, signExecHashWithPasskey, type PasskeyIdentity } from "./passkey";
 import { keccak256, parseEther, stringToBytes, type Hex } from "viem";
 import { useSharedWallet } from "./useSharedWallet";
+import { broadcastViaBrowserWallet } from "./execute";
 
 type Mesh = {
   sendRoomMessage: (obj: unknown) => void;
@@ -117,6 +118,18 @@ export function WalletPanel({ mesh, onClose }: { mesh: Mesh; onClose: () => void
   const [target, setTarget] = useState("");
   const [amount, setAmount] = useState("");
   const [proposeErr, setProposeErr] = useState("");
+  const [execState, setExecState] = useState<Record<string, string>>({});
+  const doExecute = async (id: string) => {
+    const p = shared.proposals.find(x => x.id === id);
+    if (!p) return;
+    setExecState(s => ({ ...s, [id]: "broadcasting…" }));
+    try {
+      const hash = await broadcastViaBrowserWallet(p);
+      setExecState(s => ({ ...s, [id]: `sent: ${hash.slice(0, 12)}…` }));
+    } catch (e) {
+      setExecState(s => ({ ...s, [id]: (e as Error).message }));
+    }
+  };
   const doPropose = () => {
     setProposeErr("");
     try {
@@ -223,11 +236,16 @@ export function WalletPanel({ mesh, onClose }: { mesh: Mesh; onClose: () => void
                     {p.sigs.length} / {p.threshold} signed{" "}
                     {met ? <b className="wallet-signer-ok">— ready to execute ✓</b> : null}
                   </div>
-                  {!met && (
+                  {!met ? (
                     <button onClick={() => void shared.sign(p.id)} data-testid={`sign-${p.id}`}>
                       Sign
                     </button>
+                  ) : (
+                    <button onClick={() => void doExecute(p.id)} data-testid={`exec-${p.id}`}>
+                      Execute (broadcast)
+                    </button>
                   )}
+                  {execState[p.id] && <div className="proposal-status">{execState[p.id]}</div>}
                 </div>
               );
             })}

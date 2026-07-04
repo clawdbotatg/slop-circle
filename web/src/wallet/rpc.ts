@@ -54,9 +54,11 @@ export function chainName(id = getChainId()): string {
   return CHAINS[id]?.name ?? `chain ${id}`;
 }
 
+export function chainFor(id: number): Chain {
+  return CHAINS[id] ?? mainnet;
+}
+
 export function makePublicClient(): PublicClient {
-  const chainId = getChainId();
-  const chain = CHAINS[chainId] ?? mainnet;
   const url = getRpcUrl();
-  return createPublicClient({ chain, transport: http(url || undefined) });
+  return createPublicClient({ chain: chainFor(getChainId()), transport: http(url || undefined) });
 }

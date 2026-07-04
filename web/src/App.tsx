@@ -3,6 +3,7 @@ import { deriveRoomKeys } from "./crypto/roomKeys";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
 import { AudioTile, VideoTile } from "./ui/StreamView";
+import { ChatPanel } from "./ui/ChatPanel";
 import { WalletPanel } from "./wallet/WalletPanel";
 
 // The room link is `…/#<slug>:<password>` — the URL FRAGMENT never reaches
@@ -195,6 +196,8 @@ function Room({
   const mesh = useMesh(true, slug, label, mediaKey, authKey, busKey);
   const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
   const [walletOpen, setWalletOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyInvite = useCallback(() => {
     // The full URL (incl. the #slug:secret fragment) IS the invite — the
@@ -228,6 +231,21 @@ function Room({
   }, []);
 
   const media = useLocalMedia(addStream, stopStream);
+
+  const toggleMute = useCallback(() => {
+    setMuted(prev => {
+      const next = !prev;
+      // Flip enabled on every local audio track (mic stays acquired; we just
+      // stop transmitting sound).
+      streamsRef.current.forEach(h => h.stream.getAudioTracks().forEach(t => (t.enabled = !next)));
+      return next;
+    });
+  }, []);
+
+  const leave = useCallback(() => {
+    location.hash = "";
+    location.reload();
+  }, []);
 
   // Resolve the live stream for a publication: local handle for my pubs,
   // remoteStreams map for everyone else's.
@@ -287,17 +305,21 @@ function Room({
             Share screen
           </button>
           {media.activeAudio ? (
-            <button onClick={() => media.stop("audio")}>Mute mic</button>
+            <button onClick={() => media.stop("audio")}>Stop mic</button>
           ) : (
             <button onClick={() => void media.startAudio()} disabled={media.busy === "audio"}>
               Mic only
             </button>
           )}
+          <button onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
+          <button onClick={() => setChatOpen(true)}>Chat</button>
           <button onClick={copyInvite}>{copied ? "link copied ✓" : "Copy invite link"}</button>
           <button onClick={() => setWalletOpen(true)}>Wallet</button>
+          <button onClick={leave}>Leave</button>
         </nav>
       </header>
       {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
+      {chatOpen && <ChatPanel mesh={mesh} me={label} peers={mesh.peers} onClose={() => setChatOpen(false)} />}
       {media.error && <p className="err">{media.error}</p>}
       <main className="grid">
         {tiles.map(({ pub, mine, stream }) => {
