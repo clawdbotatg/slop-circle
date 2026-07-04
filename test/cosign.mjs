@@ -58,7 +58,7 @@ async function member(first) {
     await page.waitForSelector("text=doesn't exist yet", { timeout: 6000 }).catch(() => fail("no claim offer"));
     await page.click("text=Create room");
   }
-  await page.waitForSelector("header .roomname", { timeout: 6000 }).catch(() => fail("not admitted"));
+  await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
   await page.click("text=Wallet");
   await page.waitForSelector(".wallet-panel", { timeout: 4000 });
   await page.click("text=Create passkey identity");

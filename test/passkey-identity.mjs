@@ -65,7 +65,7 @@ await cdp.send("WebAuthn.addVirtualAuthenticator", {
 await page.goto(ROOM_URL);
 await page.waitForSelector("text=doesn't exist yet", { timeout: 6000 }).catch(() => fail("no claim offer"));
 await page.click("text=Create room");
-await page.waitForSelector("header .roomname", { timeout: 6000 });
+await page.waitForSelector(".slop-menubar", { timeout: 6000 });
 
 await page.click("text=Wallet");
 await page.waitForSelector(".wallet-panel", { timeout: 4000 });
@@ -91,9 +91,9 @@ console.log("signer self-verify: signature valid ✓");
 
 // Persistence: reload, reopen wallet — same identity (loaded from storage).
 await page.reload();
-await page.waitForSelector("header .roomname", { timeout: 6000 }).catch(() => {});
+await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => {});
 // A reload lands on the join gate (fragment persists) → it re-auths and enters.
-await page.waitForSelector("header .roomname", { timeout: 8000 }).catch(() => fail("did not re-enter room after reload"));
+await page.waitForSelector(".slop-menubar", { timeout: 8000 }).catch(() => fail("did not re-enter room after reload"));
 await page.click("text=Wallet");
 await page.waitForSelector(".wallet-addr", { timeout: 6000 }).catch(() => fail("identity did not persist across reload"));
 const addr2 = (await page.textContent(".wallet-addr"))?.trim() ?? "";

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deriveRoomKeys } from "./crypto/roomKeys";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
-import { AudioTile, VideoTile } from "./ui/StreamView";
+import { AudioSurface, VideoSurface } from "./ui/StreamView";
+import { DesktopBackground, LivePulse, Window } from "./ui/slop";
 import { ChatPanel } from "./ui/ChatPanel";
 import { WalletPanel } from "./wallet/WalletPanel";
 
@@ -199,6 +200,10 @@ function Room({
   const [chatOpen, setChatOpen] = useState(false);
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Window positions on the desktop, keyed by stream id. z bumps on focus.
+  type Slot = { x: number; y: number; w: number; h: number; z: number };
+  const [slots, setSlots] = useState<Record<string, Slot>>({});
+  const zTop = useRef(20);
   const copyInvite = useCallback(() => {
     // The full URL (incl. the #slug:secret fragment) IS the invite — the
     // secret rides the fragment, which never touches the server.
@@ -260,9 +265,10 @@ function Room({
   }, [mesh.publications, mesh.remoteStreams, mesh.myId, streams]);
 
   return (
-    <div className="room">
-      <header>
-        <span className="roomname">#{slug}</span>
+    <>
+      <DesktopBackground />
+      <div className="slop-menubar">
+        <span className="slop-menubar__brand">◆ circle · #{slug}</span>
         <input
           className="handle"
           placeholder="your name"
@@ -272,82 +278,85 @@ function Room({
             localStorage.setItem("circle-handle", e.target.value);
           }}
         />
-        <span className={mesh.connected ? "status ok" : "status"}>
-          {mesh.connected ? `${mesh.peers.length} here` : mesh.connectError ?? "connecting…"}
-        </span>
-        <span
-          className={mesh.encrypted ? "badge sub-rosa" : "badge warn"}
-          title={
-            mesh.encrypted
-              ? "Media is end-to-end encrypted with the room key. The server sees only ciphertext."
-              : "Frame encryption unavailable in this browser — the transport is not end-to-end encrypted."
-          }
-        >
-          {mesh.encrypted ? "🔒 sub rosa" : "⚠ not encrypted"}
-        </span>
-        {failedPeers > 0 && (
-          <span
-            className="badge alert"
-            title="A peer could not prove knowledge of the room secret — possibly injected. It cannot decrypt any media."
-          >
-            ⚠ {failedPeers} unverified {failedPeers === 1 ? "peer" : "peers"}
-          </span>
-        )}
-        <nav>
-          {media.activeCamera ? (
-            <button onClick={() => media.stop("camera")}>Stop camera</button>
-          ) : (
-            <button onClick={() => void media.startCamera()} disabled={media.busy === "camera"}>
-              Camera
-            </button>
-          )}
-          <button onClick={() => void media.startScreen()} disabled={media.busy === "screen"}>
-            Share screen
+        {media.activeCamera ? (
+          <button onClick={() => media.stop("camera")}>Stop cam</button>
+        ) : (
+          <button onClick={() => void media.startCamera()} disabled={media.busy === "camera"}>
+            Camera
           </button>
-          {media.activeAudio ? (
-            <button onClick={() => media.stop("audio")}>Stop mic</button>
-          ) : (
-            <button onClick={() => void media.startAudio()} disabled={media.busy === "audio"}>
-              Mic only
-            </button>
+        )}
+        <button onClick={() => void media.startScreen()} disabled={media.busy === "screen"}>
+          Screen
+        </button>
+        {media.activeAudio ? (
+          <button onClick={() => media.stop("audio")}>Stop mic</button>
+        ) : (
+          <button onClick={() => void media.startAudio()} disabled={media.busy === "audio"}>
+            Mic
+          </button>
+        )}
+        <button onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
+        <button onClick={() => setChatOpen(true)}>Chat</button>
+        <button onClick={() => setWalletOpen(true)}>Wallet</button>
+        <button onClick={copyInvite}>{copied ? "Copied ✓" : "Invite"}</button>
+        <button onClick={leave}>Leave</button>
+        <span className="slop-menubar__status">
+          <span>{mesh.connected ? `${mesh.peers.length} here` : mesh.connectError ?? "connecting…"}</span>
+          <span
+            className={`slop-badge ${mesh.encrypted ? "slop-badge--rosa" : "slop-badge--warn"}`}
+            title={mesh.encrypted ? "Media is end-to-end encrypted; the server sees only ciphertext." : "Frame encryption unavailable in this browser."}
+          >
+            {mesh.encrypted ? "🔒 sub rosa" : "⚠ not encrypted"}
+          </span>
+          {failedPeers > 0 && (
+            <span className="slop-badge slop-badge--alert" title="A peer could not prove knowledge of the room secret — possibly injected. It cannot decrypt any media.">
+              ⚠ {failedPeers} unverified
+            </span>
           )}
-          <button onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
-          <button onClick={() => setChatOpen(true)}>Chat</button>
-          <button onClick={copyInvite}>{copied ? "link copied ✓" : "Copy invite link"}</button>
-          <button onClick={() => setWalletOpen(true)}>Wallet</button>
-          <button onClick={leave}>Leave</button>
-        </nav>
-      </header>
-      {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
-      {chatOpen && <ChatPanel mesh={mesh} me={label} peers={mesh.peers} onClose={() => setChatOpen(false)} />}
-      {media.error && <p className="err">{media.error}</p>}
-      <main className="grid">
-        {tiles.map(({ pub, mine, stream }) => {
+          <LivePulse live={mesh.connected} />
+        </span>
+      </div>
+
+      <div className="desktop-surface">
+        {media.error && <div className="media-error">{media.error}</div>}
+        {tiles.length === 0 && <p className="desktop-hint">Nobody is sharing yet — turn on your Camera to circle up. Then hit Invite and send the link to a friend.</p>}
+        {tiles.map(({ pub, mine, stream }, i) => {
+          const id = pub.streamId;
+          const def: Slot = { x: 30 + (i % 5) * 42, y: 64 + (i % 5) * 44, w: 360, h: 280, z: 5 };
+          const slot = slots[id] ?? def;
           const auth = mine ? "verified" : mesh.peerAuth[pub.peerId];
-          const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "… " : "";
-          const label = mine ? `${pub.label} (you)` : `${mark}${pub.label}`;
-          return !stream ? (
-            <div key={pub.streamId} className="tile tile-waiting">
-              <span className="tile-label">{mark}{pub.label} (connecting…)</span>
-            </div>
-          ) : pub.kind === "audio" ? (
-            <AudioTile key={pub.streamId} stream={stream} muted={mine} label={label} />
-          ) : (
-            <VideoTile
-              key={pub.streamId}
-              stream={stream}
-              muted={mine}
-              label={label}
-              mirrored={mine && pub.kind === "camera"}
-            />
+          const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "⋯ " : "";
+          const kind = pub.kind === "screen" ? "SCREEN" : pub.kind === "audio" ? "AUDIO" : "CAM";
+          const title = `${kind} — ${mark}${pub.label}${mine ? " (you)" : ""}`;
+          return (
+            <Window
+              key={id}
+              title={title}
+              x={slot.x}
+              y={slot.y}
+              width={slot.w}
+              height={slot.h}
+              zIndex={slot.z}
+              onFocus={() => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), z: (zTop.current += 1) } }))}
+              onClose={mine ? () => media.stopById(id) : undefined}
+              onMove={({ x, y }) => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), x, y } }))}
+              onResize={({ x, y, width, height }) => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), x, y, w: width, h: height } }))}
+              bodyStyle={{ padding: 0 }}
+            >
+              {!stream ? (
+                <div className="tile-waiting">connecting…</div>
+              ) : pub.kind === "audio" ? (
+                <AudioSurface stream={stream} muted={mine} label={pub.label} />
+              ) : (
+                <VideoSurface stream={stream} muted={mine} mirrored={mine && pub.kind === "camera"} />
+              )}
+            </Window>
           );
         })}
-        {tiles.length === 0 && (
-          <div className="empty">
-            <p>Nobody is sharing yet. Turn on your camera to circle up.</p>
-          </div>
-        )}
-      </main>
-    </div>
+      </div>
+
+      {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
+      {chatOpen && <ChatPanel mesh={mesh} me={label} peers={mesh.peers} onClose={() => setChatOpen(false)} />}
+    </>
   );
 }

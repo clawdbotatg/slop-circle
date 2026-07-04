@@ -59,7 +59,7 @@ async function joinRoom(wrongKey, isFirst) {
     await page.waitForSelector("text=doesn't exist yet", { timeout: 6000 }).catch(() => fail("no claim offer"));
     await page.click("text=Create room");
   }
-  await page.waitForSelector("header .roomname", { timeout: 6000 }).catch(() => fail("not admitted"));
+  await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
   await page.click("text=Camera");
   await page.waitForSelector("video", { timeout: 8000 });
   return page;
@@ -69,14 +69,14 @@ const remoteWidths = page =>
   page.evaluate(() => [...document.querySelectorAll("video")].map(v => ({ w: v.videoWidth, muted: v.muted })));
 // "unverified peers" alert badge count (0 if none).
 const unverifiedCount = async page => {
-  const t = await page.textContent(".badge.alert").catch(() => null);
+  const t = await page.textContent(".slop-badge--alert").catch(() => null);
   if (!t) return 0;
   const m = t.match(/(\d+)\s+unverified/);
   return m ? Number(m[1]) : 0;
 };
 
 const pageA = await joinRoom(false, true);
-const badge = await pageA.textContent(".badge");
+const badge = await pageA.textContent(".slop-badge");
 if (!badge || !badge.includes("sub rosa")) await fail(`legit peer badge not encrypted: "${badge}"`);
 console.log("A: badge =", badge.trim());
 
