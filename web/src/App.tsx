@@ -4,9 +4,8 @@ import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
 import { AudioSurface, VideoSurface } from "./ui/StreamView";
 import { DesktopBackground, LivePulse, Window } from "./ui/slop";
-import { ChatPanel } from "./ui/ChatPanel";
 import { WalletPanel } from "./wallet/WalletPanel";
-import { Notes } from "./apps/Notes";
+import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
 // The room link is `…/#<slug>:<password>` — the URL FRAGMENT never reaches
 // any server, so sharing a link shares the secret peer-to-peer only.
@@ -197,9 +196,13 @@ function Room({
   const label = handle || "anon";
   const mesh = useMesh(true, slug, label, mediaKey, authKey, busKey);
   const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
+  // Services handed to every window-app (fresh each render for live data; the
+  // mesh's send/subscribe callbacks are stable so app effects don't churn).
+  const services: AppServices = { slug, roomKey: busKey, label, mesh };
   const [walletOpen, setWalletOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
+  // Which registered window-apps are open on the desktop.
+  const [openApps, setOpenApps] = useState<Record<string, boolean>>({});
+  const toggleApp = (id: string) => setOpenApps(o => ({ ...o, [id]: !o[id] }));
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   // Window positions on the desktop, keyed by stream id. z bumps on focus.
@@ -298,8 +301,11 @@ function Room({
           </button>
         )}
         <button onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
-        <button onClick={() => setNotesOpen(o => !o)}>Notes</button>
-        <button onClick={() => setChatOpen(true)}>Chat</button>
+        {WINDOW_APPS.map(app => (
+          <button key={app.id} onClick={() => toggleApp(app.id)}>
+            {app.label}
+          </button>
+        ))}
         <button onClick={() => setWalletOpen(true)}>Wallet</button>
         <button onClick={copyInvite}>{copied ? "Copied ✓" : "Invite"}</button>
         <button onClick={leave}>Leave</button>
@@ -357,32 +363,32 @@ function Room({
           );
         })}
 
-        {notesOpen &&
-          (() => {
-            const def: Slot = { x: 120, y: 90, w: 380, h: 320, z: 6 };
-            const slot = slots.notes ?? def;
-            return (
-              <Window
-                title="NOTES"
-                x={slot.x}
-                y={slot.y}
-                width={slot.w}
-                height={slot.h}
-                zIndex={slot.z}
-                onFocus={() => setSlots(s => ({ ...s, notes: { ...(s.notes ?? def), z: (zTop.current += 1) } }))}
-                onClose={() => setNotesOpen(false)}
-                onMove={({ x, y }) => setSlots(s => ({ ...s, notes: { ...(s.notes ?? def), x, y } }))}
-                onResize={({ x, y, width, height }) => setSlots(s => ({ ...s, notes: { ...(s.notes ?? def), x, y, w: width, h: height } }))}
-                bodyStyle={{ padding: 0 }}
-              >
-                <Notes slug={slug} roomKey={busKey} mesh={mesh} />
-              </Window>
-            );
-          })()}
+        {WINDOW_APPS.filter(app => openApps[app.id]).map((app, i) => {
+          const def: Slot = { x: 110 + i * 40, y: 80 + i * 40, w: app.defaultSize.w, h: app.defaultSize.h, z: 6 };
+          const slot = slots[app.id] ?? def;
+          const Comp = app.Component;
+          return (
+            <Window
+              key={app.id}
+              title={app.label.toUpperCase()}
+              x={slot.x}
+              y={slot.y}
+              width={slot.w}
+              height={slot.h}
+              zIndex={slot.z}
+              onFocus={() => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), z: (zTop.current += 1) } }))}
+              onClose={() => toggleApp(app.id)}
+              onMove={({ x, y }) => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), x, y } }))}
+              onResize={({ x, y, width, height }) => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), x, y, w: width, h: height } }))}
+              bodyStyle={{ padding: 0 }}
+            >
+              <Comp {...services} />
+            </Window>
+          );
+        })}
       </div>
 
       {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
-      {chatOpen && <ChatPanel mesh={mesh} me={label} peers={mesh.peers} onClose={() => setChatOpen(false)} />}
     </>
   );
 }

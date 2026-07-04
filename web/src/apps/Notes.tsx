@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getBlob, putBlob } from "../blob";
+import type { AppServices } from "../os/appkit";
 
 // The peer-authority validation app. A shared room notepad:
 //   • live edits broadcast over the encrypted bus (everyone sees your typing)
@@ -9,14 +10,12 @@ import { getBlob, putBlob } from "../blob";
 // stores an opaque blob. Conflict resolution is last-write-wins by timestamp
 // (a CRDT is the upgrade for true concurrent-character editing).
 
-type Mesh = {
-  sendRoomMessage: (obj: unknown) => void;
-  addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
-};
-
 type NotesDoc = { text: string; updatedAt: number };
 
-export function Notes({ slug, roomKey, mesh }: { slug: string; roomKey: ArrayBuffer; mesh: Mesh }) {
+export function Notes({ slug, roomKey, mesh }: AppServices) {
+  // Stable across renders (useMesh returns them via useCallback) — safe as
+  // effect deps so we subscribe once, not on every parent re-render.
+  const { sendRoomMessage, addRoomMessageListener } = mesh;
   const [text, setText] = useState("");
   const [status, setStatus] = useState("loading…");
   const updatedAtRef = useRef(0);
@@ -45,34 +44,32 @@ export function Notes({ slug, roomKey, mesh }: { slug: string; roomKey: ArrayBuf
       else if (!cancelled) setStatus("synced");
     });
 
-    const off = mesh.addRoomMessageListener((_from, obj) => {
+    const off = addRoomMessageListener((_from, obj) => {
       const m = obj as { t?: string } & Partial<NotesDoc>;
       if (m?.t === "notes") {
         apply(m); // last-write-wins by updatedAt
       } else if (m?.t === "notes-sync-request" && updatedAtRef.current > 0) {
         // Someone opened Notes — hand them our current doc over the bus.
-        mesh.sendRoomMessage({ t: "notes", text: textRef.current, updatedAt: updatedAtRef.current });
+        sendRoomMessage({ t: "notes", text: textRef.current, updatedAt: updatedAtRef.current });
       }
     });
 
     // Ask whoever's here for the current note.
-    mesh.sendRoomMessage({ t: "notes-sync-request" });
+    sendRoomMessage({ t: "notes-sync-request" });
 
     return () => {
       cancelled = true;
       off();
     };
-    // `text` intentionally omitted — the listener reads the latest via the
-    // ref/closure refresh below; we re-subscribe only on room/key change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, roomKey, mesh]);
+    // `text` read via ref; callbacks are stable so we subscribe once.
+  }, [slug, roomKey, sendRoomMessage, addRoomMessageListener]);
 
   const onEdit = (value: string) => {
     setText(value);
     const updatedAt = Date.now();
     updatedAtRef.current = updatedAt;
     // Broadcast live to everyone in the room (bus).
-    mesh.sendRoomMessage({ t: "notes", text: value, updatedAt });
+    sendRoomMessage({ t: "notes", text: value, updatedAt });
     setStatus("saving…");
     // Debounce the durable write (blob store).
     if (saveTimer.current) clearTimeout(saveTimer.current);
