@@ -243,6 +243,15 @@ app.register(async fastify => {
           return;
         }
 
+        // Opaque encrypted group message bus (chat, wallet proposals +
+        // signatures). The payload is AES-GCM ciphertext keyed from the room
+        // secret — the relay only fans it out, never reads it.
+        case "room_msg": {
+          if (typeof msg.payload !== "string") return send(socket, { type: "error", error: "bad-room-msg" });
+          room.broadcast({ type: "room_msg", from: peerId, payload: msg.payload }, peerId);
+          return;
+        }
+
         case "set_camera_off": {
           if (typeof msg.streamId !== "string" || typeof msg.off !== "boolean") {
             return send(socket, { type: "error", error: "bad-camera-off" });

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatEther, type Address } from "viem";
 import { createPasskey, loadLastPasskeyIdentity, signExecHashWithPasskey, type PasskeyIdentity } from "./passkey";
-import { keccak256, stringToBytes, type Hex } from "viem";
+import { keccak256, parseEther, stringToBytes, type Hex } from "viem";
+import { useSharedWallet } from "./useSharedWallet";
+
+type Mesh = {
+  sendRoomMessage: (obj: unknown) => void;
+  addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
+};
 import { predictPersonalWalletAddress } from "./multisig";
 import {
   chainName,
@@ -20,7 +26,7 @@ import {
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-export function WalletPanel({ onClose }: { onClose: () => void }) {
+export function WalletPanel({ mesh, onClose }: { mesh: Mesh; onClose: () => void }) {
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(() => loadLastPasskeyIdentity());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -104,6 +110,31 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
     setDeployer(deployer.trim());
   };
 
+  // --- shared circle wallet (propose + co-sign over the room bus) ---
+  const shared = useSharedWallet(mesh, identity);
+  const [roomWallet, setRoomWallet] = useState("");
+  const [threshold, setThreshold] = useState(2);
+  const [target, setTarget] = useState("");
+  const [amount, setAmount] = useState("");
+  const [proposeErr, setProposeErr] = useState("");
+  const doPropose = () => {
+    setProposeErr("");
+    try {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(roomWallet)) throw new Error("enter the room wallet (multisig) address");
+      if (!/^0x[0-9a-fA-F]{40}$/.test(target)) throw new Error("enter a valid recipient address");
+      shared.propose({
+        multisig: roomWallet as Address,
+        target: target as Address,
+        value: parseEther(amount || "0"),
+        threshold,
+        chainId: chain,
+        memo: `send ${amount || "0"} to ${target.slice(0, 8)}…`,
+      });
+    } catch (e) {
+      setProposeErr((e as Error).message);
+    }
+  };
+
   return (
     <div className="wallet-overlay" onClick={onClose}>
       <div className="wallet-panel" onClick={e => e.stopPropagation()}>
@@ -152,6 +183,54 @@ export function WalletPanel({ onClose }: { onClose: () => void }) {
             ) : (
               <p className="dim">{derivErr || "deriving…"}</p>
             )}
+          </div>
+        )}
+
+        {identity && (
+          <div className="wallet-section">
+            <label>Shared circle wallet — propose &amp; co-sign</label>
+            <input value={roomWallet} onChange={e => setRoomWallet(e.target.value)} placeholder="room wallet (multisig) address 0x…" />
+            <div className="wallet-row">
+              <input value={target} onChange={e => setTarget(e.target.value)} placeholder="send to 0x…" />
+              <input
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder="amount"
+                style={{ width: "6rem" }}
+              />
+            </div>
+            <div className="wallet-row">
+              <label style={{ alignSelf: "center" }}>threshold</label>
+              <input
+                type="number"
+                min={1}
+                value={threshold}
+                onChange={e => setThreshold(Math.max(1, Number(e.target.value)))}
+                style={{ width: "4rem" }}
+              />
+              <button onClick={doPropose} data-testid="propose">
+                Propose
+              </button>
+            </div>
+            {proposeErr && <p className="err">{proposeErr}</p>}
+
+            {shared.proposals.map(p => {
+              const met = p.sigs.length >= p.threshold;
+              return (
+                <div key={p.id} className={met ? "proposal ready" : "proposal"} data-testid="proposal">
+                  <div className="proposal-memo">{p.memo || `${p.value} wei → ${p.target.slice(0, 10)}…`}</div>
+                  <div className="proposal-status" data-testid="sigcount">
+                    {p.sigs.length} / {p.threshold} signed{" "}
+                    {met ? <b className="wallet-signer-ok">— ready to execute ✓</b> : null}
+                  </div>
+                  {!met && (
+                    <button onClick={() => void shared.sign(p.id)} data-testid={`sign-${p.id}`}>
+                      Sign
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

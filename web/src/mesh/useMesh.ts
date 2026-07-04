@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { decryptBus, encryptBus } from "../crypto/busCrypto";
 import { decryptReceiver, encryptSender, frameCryptoSupported } from "../crypto/frameCrypto";
 import type { Peer, Publication, StreamKind } from "./meshTypes";
 import { runPeerAuth, type PeerAuthResult } from "./peerAuth";
@@ -105,6 +106,10 @@ export type MeshState = {
   encrypted: boolean;
   /** Per-peer authentication status (proved knowledge of the room secret). */
   peerAuth: Record<string, PeerAuthState>;
+  /** Broadcast an encrypted group message to all peers (chat, wallet). */
+  sendRoomMessage: (obj: unknown) => void;
+  /** Subscribe to decrypted group messages. Returns an unsubscribe fn. */
+  addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
   publish: (stream: MediaStream, kind: StreamKind, label: string) => void;
   unpublish: (streamId: string) => void;
   replaceTrack: (
@@ -121,6 +126,7 @@ export function useMesh(
   label: string,
   mediaKey: ArrayBuffer | null,
   authKey: ArrayBuffer | null,
+  busKey: ArrayBuffer | null,
 ): MeshState {
   const [myId, setMyId] = useState<string | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
@@ -144,6 +150,23 @@ export function useMesh(
   mediaKeyRef.current = mediaKey;
   const authKeyRef = useRef(authKey);
   authKeyRef.current = authKey;
+  const busKeyRef = useRef(busKey);
+  busKeyRef.current = busKey;
+  const roomListenersRef = useRef<Set<(from: string, obj: unknown) => void>>(new Set());
+
+  const sendRoomMessage = useCallback((obj: unknown) => {
+    const key = busKeyRef.current;
+    const t = transportRef.current;
+    if (!key || !t) return;
+    void encryptBus(obj, key).then(payload => t.send({ type: "room_msg", payload }));
+  }, []);
+
+  const addRoomMessageListener = useCallback((fn: (from: string, obj: unknown) => void) => {
+    roomListenersRef.current.add(fn);
+    return () => {
+      roomListenersRef.current.delete(fn);
+    };
+  }, []);
 
   const setPeerAuthStatus = useCallback((peerId: string, status: PeerAuthState) => {
     setPeerAuth(prev => (prev[peerId] === status ? prev : { ...prev, [peerId]: status }));
@@ -537,6 +560,13 @@ export function useMesh(
           return next;
         });
       },
+      onRoomMsg: (from, payload) => {
+        const key = busKeyRef.current;
+        if (!key) return;
+        void decryptBus(payload, key).then(obj => {
+          if (obj != null) roomListenersRef.current.forEach(fn => fn(from, obj));
+        });
+      },
     });
 
     return () => {
@@ -606,6 +636,8 @@ export function useMesh(
     publications,
     encrypted: mediaKey !== null && frameCryptoSupported(),
     peerAuth,
+    sendRoomMessage,
+    addRoomMessageListener,
     publish,
     unpublish,
     replaceTrack,

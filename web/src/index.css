@@ -273,3 +273,36 @@ header nav button {
   color: #4ade80;
   font-size: 0.85rem;
 }
+
+.wallet-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wallet-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.proposal {
+  border: 1px solid #2e2547;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.proposal.ready {
+  border-color: #1c5c37;
+  background: #0f2419;
+}
+
+.proposal-memo {
+  font-size: 0.85rem;
+}
+
+.proposal-status {
+  font-size: 0.8rem;
+  color: #a78bfa;
+}

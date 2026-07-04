@@ -24,25 +24,32 @@ export default function App() {
   const [gateError, setGateError] = useState("");
   // Authed room carries the media key (never sent anywhere). The secret
   // itself lives only in the URL fragment.
-  const [room, setRoom] = useState<{ slug: string; mediaKey: ArrayBuffer; authKey: ArrayBuffer } | null>(null);
+  const [room, setRoom] = useState<{
+    slug: string;
+    mediaKey: ArrayBuffer;
+    authKey: ArrayBuffer;
+    busKey: ArrayBuffer;
+  } | null>(null);
   const [pending, setPending] = useState<{
     slug: string;
     verifier: string;
     mediaKey: ArrayBuffer;
     authKey: ArrayBuffer;
+    busKey: ArrayBuffer;
   } | null>(null);
   const [slugInput, setSlugInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [handle, setHandle] = useState(() => localStorage.getItem("circle-handle") ?? "");
 
   const authRoom = useCallback(async (slug: string, secret: string) => {
-    const { verifier, mediaKey, authKey } = await deriveRoomKeys(secret, slug);
+    const { verifier, mediaKey, authKey, busKey } = await deriveRoomKeys(secret, slug);
     // Test seam: simulate an unauthorized peer (e.g. a relay-injected one)
     // that knows the verifier but not the fragment secret, so it derives
-    // neither the media key nor the auth key.
+    // none of the content keys.
     const wrong = (window as unknown as { __circleForceWrongKey?: boolean }).__circleForceWrongKey === true;
     const mKey = wrong ? crypto.getRandomValues(new Uint8Array(32)).buffer : mediaKey;
     const aKey = wrong ? crypto.getRandomValues(new Uint8Array(32)).buffer : authKey;
+    const bKey = wrong ? crypto.getRandomValues(new Uint8Array(32)).buffer : busKey;
     const res = await fetch(`/v1/rooms/${encodeURIComponent(slug)}/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -50,13 +57,13 @@ export default function App() {
       body: JSON.stringify({ password: verifier }), // verifier, never the secret
     });
     if (res.ok) {
-      setRoom({ slug, mediaKey: mKey, authKey: aKey });
+      setRoom({ slug, mediaKey: mKey, authKey: aKey, busKey: bKey });
       location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("authed");
       return;
     }
     if (res.status === 404) {
-      setPending({ slug, verifier, mediaKey: mKey, authKey: aKey });
+      setPending({ slug, verifier, mediaKey: mKey, authKey: aKey, busKey: bKey });
       location.hash = `${slug}:${encodeURIComponent(secret)}`;
       setGate("claim-offer");
       return;
@@ -75,7 +82,12 @@ export default function App() {
       body: JSON.stringify({ password: pending.verifier }),
     });
     if (res.ok) {
-      setRoom({ slug: pending.slug, mediaKey: pending.mediaKey, authKey: pending.authKey });
+      setRoom({
+        slug: pending.slug,
+        mediaKey: pending.mediaKey,
+        authKey: pending.authKey,
+        busKey: pending.busKey,
+      });
       setGate("authed");
     } else {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -153,7 +165,14 @@ export default function App() {
   }
 
   return (
-    <Room slug={room.slug} mediaKey={room.mediaKey} authKey={room.authKey} handle={handle} setHandle={setHandle} />
+    <Room
+      slug={room.slug}
+      mediaKey={room.mediaKey}
+      authKey={room.authKey}
+      busKey={room.busKey}
+      handle={handle}
+      setHandle={setHandle}
+    />
   );
 }
 
@@ -161,17 +180,19 @@ function Room({
   slug,
   mediaKey,
   authKey,
+  busKey,
   handle,
   setHandle,
 }: {
   slug: string;
   mediaKey: ArrayBuffer;
   authKey: ArrayBuffer;
+  busKey: ArrayBuffer;
   handle: string;
   setHandle: (h: string) => void;
 }) {
   const label = handle || "anon";
-  const mesh = useMesh(true, slug, label, mediaKey, authKey);
+  const mesh = useMesh(true, slug, label, mediaKey, authKey, busKey);
   const failedPeers = Object.values(mesh.peerAuth).filter(s => s === "failed").length;
   const [walletOpen, setWalletOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -276,7 +297,7 @@ function Room({
           <button onClick={() => setWalletOpen(true)}>Wallet</button>
         </nav>
       </header>
-      {walletOpen && <WalletPanel onClose={() => setWalletOpen(false)} />}
+      {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
       {media.error && <p className="err">{media.error}</p>}
       <main className="grid">
         {tiles.map(({ pub, mine, stream }) => {

@@ -21,6 +21,8 @@ export type SignalHandlers = {
   onSignal: (from: string, kind: string, payload: unknown) => void;
   onPublished: (pub: Publication) => void;
   onUnpublished: (peerId: string, streamId: string) => void;
+  /** Encrypted group message from another peer (opaque ciphertext string). */
+  onRoomMsg: (from: string, payload: string) => void;
 };
 
 export interface SignalTransport {
@@ -117,6 +119,11 @@ export class RelayTransport implements SignalTransport {
         case "unpublished":
           if (typeof msg.peerId === "string" && typeof msg.streamId === "string") {
             h.onUnpublished(msg.peerId, msg.streamId);
+          }
+          return;
+        case "room_msg":
+          if (typeof msg.from === "string" && typeof msg.payload === "string") {
+            h.onRoomMsg(msg.from, msg.payload);
           }
           return;
         // pong and unknown types: ignore.

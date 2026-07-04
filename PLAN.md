@@ -336,12 +336,22 @@ What this protects, and from whom:
     read confirming the vendored factory ABI + CREATE2 derivation return a
     real `getMultisigAddress`. NB: WebAuthn RP ID must be a domain or
     `localhost` (never a bare IP) — real deploys use a domain over HTTPS.
-  - **Still open in Phase 2 (needs a chain — testnet/fork or funded keys):**
-    passkey signing of the exec hash → `WalletSignature` (vendor the
-    `navigator.credentials.get` → DER-parse path), propose/sign/execute over
-    the mesh data channels, wallet-signers room gate (relay verifies signer
-    membership on-chain), and the optional gas facilitator. No local chain
-    here (no foundry/anvil), so these get built against a testnet fork next.
+  - **Done (2026-07-03) — passkey signing + collaborative co-signing.**
+    `signExecHashWithPasskey` (WebAuthn get → DER-parse → low-S → ABI-encode
+    the Passkey `WalletSignature`), self-verified against the pubkey with
+    `@noble` before returning. An **encrypted room message bus** (relay
+    `room_msg` fan-out of AES-GCM ciphertext keyed from the room secret;
+    `crypto/busCrypto.ts`, `useMesh.sendRoomMessage`/`addRoomMessageListener`)
+    carries a **shared wallet** (`wallet/useSharedWallet.ts`): propose a tx
+    from the room multisig → co-sign over the bus → collect deduped/sorted
+    signatures to threshold → "ready to execute". Verified end-to-end by
+    `test/cosign.mjs`: two passkey members reach 2/2. Chain-free
+    (counterfactual nonce 0).
+  - **Still open in Phase 2 (needs a chain — funded key or a fork):** the
+    final `execTransaction` **broadcast** of a met-threshold proposal (one
+    call once funded), the wallet-signers room gate (relay reads signer set
+    on-chain), and the optional gas facilitator. No local chain here
+    (foundry install is blocked by sandbox policy).
 - **Phase 3 — the ladder.** Share-your-node RPC over data channels, quorum
   with block pinning + room-visible disagreement, IPFS/ENS deployment of
   the client, one-command server (docker compose: relay + coturn).

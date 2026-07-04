@@ -41,13 +41,16 @@ export type RoomKeys = {
   mediaKey: ArrayBuffer;
   /** HMAC key material for peer-to-peer authentication. Never sent anywhere. */
   authKey: ArrayBuffer;
+  /** AES-256-GCM key for the encrypted room message bus (chat, wallet). */
+  busKey: ArrayBuffer;
 };
 
 export async function deriveRoomKeys(secret: string, slug: string): Promise<RoomKeys> {
-  const [verifierBytes, mediaBytes, authBytes] = await Promise.all([
+  const [verifierBytes, mediaBytes, authBytes, busBytes] = await Promise.all([
     pbkdf2(secret, "verifier-v1", slug, 32),
     pbkdf2(secret, "media-v1", slug, 32),
     pbkdf2(secret, "auth-v1", slug, 32),
+    pbkdf2(secret, "bus-v1", slug, 32),
   ]);
   return {
     verifier: base64url(verifierBytes),
@@ -55,5 +58,6 @@ export async function deriveRoomKeys(secret: string, slug: string): Promise<Room
     // standalone ArrayBuffers.
     mediaKey: mediaBytes.slice().buffer,
     authKey: authBytes.slice().buffer,
+    busKey: busBytes.slice().buffer,
   };
 }

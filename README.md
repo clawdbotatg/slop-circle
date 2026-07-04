@@ -101,8 +101,12 @@ end-to-end encrypted.
   the others; an injected peer is flagged and can decrypt nothing.
 - **Passkey wallet identity.** Create an on-chain multisig signer with
   Face ID / Touch ID (no wallet app), see your personal-wallet address +
-  balance, and sign — self-verified. Collaborative propose/execute and the
-  wallet-signers room gate are next (see [PLAN.md](PLAN.md)).
+  balance, and sign — self-verified.
+- **Shared circle wallet.** Propose a transaction from the room's multisig;
+  members co-sign it over the encrypted bus until the threshold is met
+  ("2 / 2 signed — ready to execute"). Everything up to the final on-chain
+  broadcast works today; broadcasting the met-threshold transaction needs a
+  funded key (the next step) — see [PLAN.md](PLAN.md).
 
 ## Try it locally first (single machine, no sharing)
 
