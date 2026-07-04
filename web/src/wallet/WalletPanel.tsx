@@ -4,11 +4,7 @@ import { createPasskey, loadLastPasskeyIdentity, signExecHashWithPasskey, type P
 import { keccak256, parseEther, stringToBytes, type Hex } from "viem";
 import { useSharedWallet } from "./useSharedWallet";
 import { broadcastViaBrowserWallet } from "./execute";
-
-type Mesh = {
-  sendRoomMessage: (obj: unknown) => void;
-  addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
-};
+import type { AppServices } from "../os/appkit";
 import { predictPersonalWalletAddress } from "./multisig";
 import {
   chainName,
@@ -27,7 +23,9 @@ import {
 
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-export function WalletPanel({ mesh, onClose }: { mesh: Mesh; onClose: () => void }) {
+// The Wallet window-app: passkey identity + personal wallet + shared multisig
+// (propose / co-sign / execute). Rendered inside an OS-managed Window.
+export function WalletPanel({ mesh }: AppServices) {
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(() => loadLastPasskeyIdentity());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -149,15 +147,8 @@ export function WalletPanel({ mesh, onClose }: { mesh: Mesh; onClose: () => void
   };
 
   return (
-    <div className="wallet-overlay" onClick={onClose}>
-      <div className="wallet-panel" onClick={e => e.stopPropagation()}>
-        <div className="wallet-head">
-          <h2>Wallet</h2>
-          <button className="ghost" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
+    <div className="wallet-body">
+      <div>
         {!identity ? (
           <div className="wallet-section">
             <p className="dim">

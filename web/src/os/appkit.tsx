@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { Chat } from "../apps/Chat";
 import { Notes } from "../apps/Notes";
+import { WalletPanel } from "../wallet/WalletPanel";
 
 // The app-kit contract — the seam that turns circle into a base OS. An app is
 // a self-contained plugin; the desktop renders launchers + manages windows
@@ -50,5 +51,12 @@ export const WINDOW_APPS: WindowApp[] = [
     defaultSize: { w: 340, h: 380 },
     Component: Chat,
     skill: "Chat sends a line to everyone in the room over the encrypted bus.",
+  },
+  {
+    id: "wallet",
+    label: "Wallet",
+    defaultSize: { w: 420, h: 520 },
+    Component: WalletPanel,
+    skill: "Wallet is a passkey identity + personal wallet + shared multisig: propose a tx, co-sign to threshold, execute.",
   },
 ];

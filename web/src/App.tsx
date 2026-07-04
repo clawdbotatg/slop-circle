@@ -4,7 +4,6 @@ import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { useMesh } from "./mesh/useMesh";
 import { AudioSurface, VideoSurface } from "./ui/StreamView";
 import { DesktopBackground, LivePulse, Window } from "./ui/slop";
-import { WalletPanel } from "./wallet/WalletPanel";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
 // The room link is `…/#<slug>:<password>` — the URL FRAGMENT never reaches
@@ -199,7 +198,6 @@ function Room({
   // Services handed to every window-app (fresh each render for live data; the
   // mesh's send/subscribe callbacks are stable so app effects don't churn).
   const services: AppServices = { slug, roomKey: busKey, label, mesh };
-  const [walletOpen, setWalletOpen] = useState(false);
   // Which registered window-apps are open on the desktop.
   const [openApps, setOpenApps] = useState<Record<string, boolean>>({});
   const toggleApp = (id: string) => setOpenApps(o => ({ ...o, [id]: !o[id] }));
@@ -306,7 +304,6 @@ function Room({
             {app.label}
           </button>
         ))}
-        <button onClick={() => setWalletOpen(true)}>Wallet</button>
         <button onClick={copyInvite}>{copied ? "Copied ✓" : "Invite"}</button>
         <button onClick={leave}>Leave</button>
         <span className="slop-menubar__status">
@@ -387,8 +384,6 @@ function Room({
           );
         })}
       </div>
-
-      {walletOpen && <WalletPanel mesh={mesh} onClose={() => setWalletOpen(false)} />}
     </>
   );
 }
