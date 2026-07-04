@@ -66,6 +66,46 @@ circle apps use parts 1–2 only. slop apps may add part 3.
 blind-relay E2EE; server-plugin apps trust the operator. The base defaults
 to the first; server plugins are opt-in per product.
 
+## 3½. Multiplayer without server-authority (the Notes test)
+
+The natural objection: *"most apps are multiplayer — when I type a note
+everyone sees it — surely that needs the server?"* No. **"Multiplayer" ≠
+"server logic."** A collaborative app needs three things, none of which
+require the server to understand the app:
+
+1. **Broadcast** my change to everyone → the encrypted **bus** (relay fans
+   out ciphertext it can't read).
+2. **Agree** on the resulting state → done *on the peers*: last-write-wins
+   (`updatedAt`) for simple data, or a **CRDT** (Yjs / Automerge) for real
+   collaborative text/lists — CRDTs merge concurrent edits deterministically
+   with no central authority (`y-webrtc` already does Google-Docs-style
+   editing over WebRTC with only a signaling relay). Our bus is the transport.
+3. **Persist / late-join** → the encrypted **blob store** (relay holds
+   ciphertext; a joiner fetches+decrypts it) or an online peer re-sends state
+   (the `sync-request` pattern circle already uses).
+
+For a collaborative-but-not-secret app the relay is only **relaying + storing**
+— a blind pipe and a blind disk. It never runs the app.
+
+**Existence proof (already built):** circle's wallet co-signing is a
+multiplayer app — propose → everyone sees it → everyone signs → collects to
+threshold → late-joiners sync — running entirely over the encrypted bus with
+**zero wallet logic in the relay**. That's a *harder* multiplayer flow than
+Notes.
+
+**When you truly need server-authority** (the only cases): hidden information
+(poker's deck must be secret from players), anti-cheat (a client could lie
+about an outcome others can't verify), secrets/external calls (RPC/LLM key,
+facilitator hot wallet), or trusted ordering (rare; usually a CRDT or the
+chain covers it). Notes has none of these; poker has all of them. That's the
+clean line — and why **most apps are multiplayer but very few need
+server-authority.**
+
+**Notes is the validation app.** It's the perfect first peer-authority
+plugin: intuition says it needs a server, the model says it doesn't. Build
+Notes on the bus + blob store first; if it works, the whole peer-authority
+model is proven before the bigger refactor.
+
 ## 4. The relay, reframed: a microkernel + a plugin host
 
 Today slop's relay is a ~9k-line monolith because per-app state/handlers all
@@ -200,8 +240,10 @@ building the base.
 - **P1 — OS + kernel.** Extract circle's current window/menu/theme into
   `@slop/os` (add real dropdown menus + the SKILL action); extract the relay
   into `@slop/relay-kernel` and **add the encrypted blob store**.
-- **P2 — Basic apps as plugins.** Rebuild camera/screen/audio/chat/notes/
-  wallet/bank on the contracts. Prove circle runs with **zero server plugins**.
+- **P2 — Basic apps as plugins.** Build **Notes first** as the peer-authority
+  validation app (bus + encrypted blob store, no server) — see §3½ — then the
+  rest: camera/screen/audio/chat/wallet/bank. Prove circle runs with **zero
+  server plugins**.
 - **P3 — Greyscale polish + SKILL end-to-end** (per-app skill docs composed
   into the system skill; agent token minting in the kernel).
 - **P4 — Extract packages.** `@slop/os` + `@slop/relay-kernel` +
