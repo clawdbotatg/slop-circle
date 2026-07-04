@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
@@ -114,6 +114,54 @@ app.get<{ Params: { slug: string } }>("/v1/rooms/:slug/auth", async (req, reply)
   const room = getOrCreateRoom(slug);
   return { slug, exists: room.auth.hasPassword(), authed: hasValidRoomCookie(req, slug) };
 });
+
+// --- Encrypted blob store -------------------------------------------------
+// Durable per-room key/value the relay stores but CANNOT read: the client
+// hands over AES-GCM ciphertext keyed from the room secret. This is what lets
+// peer-authority apps (Notes, votes, the wallet queue) persist and let
+// late-joiners catch up — without any app logic on the server. The relay is a
+// blind disk: gated by the room cookie, it just holds bytes.
+
+const BLOB_MAX_BYTES = 1_000_000; // 1 MB ciphertext cap per key
+const VALID_KEY = /^[a-z0-9-]{1,64}$/;
+
+function blobPath(slug: string, key: string): string {
+  return join(config.dataDir, "rooms", slug, "blobs", `${key}.blob`);
+}
+
+app.get<{ Params: { slug: string; key: string } }>("/v1/rooms/:slug/blob/:key", async (req, reply) => {
+  reply.header("cache-control", "no-store");
+  const { slug, key } = req.params;
+  if (!isValidSlug(slug) || !VALID_KEY.test(key)) return reply.code(400).send({ error: "bad-slug-or-key" });
+  if (!hasValidRoomCookie(req, slug)) return reply.code(401).send({ error: "room-auth-required" });
+  try {
+    return { data: readFileSync(blobPath(slug, key), "utf8") };
+  } catch {
+    return reply.code(404).send({ error: "not-found" });
+  }
+});
+
+app.put<{ Params: { slug: string; key: string }; Body: { data?: string } }>(
+  "/v1/rooms/:slug/blob/:key",
+  async (req, reply) => {
+    const { slug, key } = req.params;
+    if (!isValidSlug(slug) || !VALID_KEY.test(key)) return reply.code(400).send({ error: "bad-slug-or-key" });
+    if (!hasValidRoomCookie(req, slug)) return reply.code(401).send({ error: "room-auth-required" });
+    const data = typeof req.body?.data === "string" ? req.body.data : "";
+    if (!data) return reply.code(400).send({ error: "missing-data" });
+    if (data.length > BLOB_MAX_BYTES) return reply.code(413).send({ error: "too-large" });
+    const path = blobPath(slug, key);
+    try {
+      mkdirSync(join(config.dataDir, "rooms", slug, "blobs"), { recursive: true });
+      const tmp = `${path}.tmp`;
+      writeFileSync(tmp, data);
+      renameSync(tmp, path);
+    } catch {
+      return reply.code(500).send({ error: "write-failed" });
+    }
+    return { ok: true };
+  },
+);
 
 // --- TURN credentials -----------------------------------------------------
 // coturn REST scheme: username "<expiry>:<rand>", credential
