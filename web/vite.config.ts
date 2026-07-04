@@ -1,11 +1,21 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const pkg = (p: string) => fileURLToPath(new URL(`../packages/${p}`, import.meta.url));
+
 // Static, self-contained build — destined for IPFS pinning, so no
-// absolute base path and no external requests at runtime.
+// absolute base path and no external requests at runtime. Base OS packages
+// are consumed from source via aliases (no build step for internal packages).
 export default defineConfig({
   plugins: [react()],
   base: "./",
+  resolve: {
+    alias: {
+      "@slop/app-kit": pkg("app-kit/src/index.ts"),
+      "@slop/os": pkg("os/src/index.ts"),
+    },
+  },
   server: {
     port: 5180,
     proxy: {

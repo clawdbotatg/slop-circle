@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { deriveRoomKeys } from "./crypto/roomKeys";
+import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, deriveRoomKeys, useMesh } from "@slop/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
-import { useMesh } from "./mesh/useMesh";
-import { AudioSurface, VideoSurface } from "./ui/StreamView";
-import { DesktopBackground, LivePulse, Window } from "./ui/slop";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
 // The room link is `…/#<slug>:<password>` — the URL FRAGMENT never reaches

@@ -2,7 +2,7 @@
   "name": "slop-circle",
   "private": true,
   "version": "0.0.1",
-  "workspaces": ["relay", "web"],
+  "workspaces": ["packages/*", "relay", "web"],
   "scripts": {
     "start": "bash ops/run-local.sh",
     "relay": "npm run dev -w relay",

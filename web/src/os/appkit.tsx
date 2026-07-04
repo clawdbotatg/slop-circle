@@ -1,41 +1,14 @@
-import type { ComponentType } from "react";
 import { Chat } from "../apps/Chat";
 import { Notes } from "../apps/Notes";
 import { WalletPanel } from "../wallet/WalletPanel";
+import type { WindowApp } from "@slop/app-kit";
 
-// The app-kit contract — the seam that turns circle into a base OS. An app is
-// a self-contained plugin; the desktop renders launchers + manages windows
-// purely from this registry, so *adding an app is one entry here*, no core
-// edits. (Media capture — camera/screen/audio — and OS chrome — mute/invite/
-// leave — stay OS-level; this registry is for the apps proper.)
-//
-// This is the extraction point: `appkit` + the registered apps become
-// `@slop/app-kit` + `@slop/app-*` packages when the base is split out.
-
-// Services every app receives (interfaces; the product supplies the impl —
-// circle wires its E2EE mesh + relay behind these).
-export type AppServices = {
-  slug: string;
-  /** Room key for the encrypted bus + blob store. Never leaves the browser. */
-  roomKey: ArrayBuffer;
-  /** This member's display name. */
-  label: string;
-  mesh: {
-    sendRoomMessage: (obj: unknown) => void;
-    addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
-    peers: { id: string; handle: string | null }[];
-  };
-};
-
-/** A window-app renders a component inside an OS-managed draggable Window. */
-export type WindowApp = {
-  id: string;
-  label: string;
-  defaultSize: { w: number; h: number };
-  Component: ComponentType<AppServices>;
-  /** Agent instructions for operating this app — composed into the SKILL. */
-  skill?: string;
-};
+// The app REGISTRY — circle's selection of apps over the base contract. The
+// contract types (AppServices, WindowApp) now live in the @slop/app-kit
+// package; re-export them so apps can keep importing from "../os/appkit".
+// A product = this registry + a theme + backend wiring. Adding an app is one
+// entry here; media capture + mute/invite/leave stay OS-level.
+export type { AppServices, WindowApp } from "@slop/app-kit";
 
 export const WINDOW_APPS: WindowApp[] = [
   {
