@@ -282,12 +282,17 @@ step. The direction only changes *which* codebase is the donor.
   validation app (bus + encrypted blob store, no server) — see §3½ — then the
   rest: camera/screen/audio/chat/wallet/bank. Prove circle runs with **zero
   server plugins**.
-- **P3 — Greyscale polish + SKILL end-to-end. ✅ SKILL DONE (2026-07-05).**
-  `composeSkill()` in `@slop/os` + a "Skill" menu action compose per-app skill
-  docs + the invite link into an agent brief, copied to the clipboard.
-  Client-composed (relay stays blind) rather than a kernel agent token — see §9
-  for why that's the right model for circle's peer-authority. Greyscale-theme
-  polish is the remaining part of P3.
+- **P3 — Greyscale polish + SKILL end-to-end. ✅ DONE (2026-07-05).**
+  (1) The SKILL: `composeSkill()` in `@slop/os` + a "Skill" menu action compose
+  per-app skill docs + the invite link into an agent brief, copied to the
+  clipboard. Client-composed (relay stays blind) not a kernel token — see §9.
+  (2) Greyscale theme: `web/src/theme/base.css` (the @slop/os design system) now
+  routes ALL color through a two-layer token contract — a PALETTE a product
+  overrides (accent/secondary/live/warn/alert as `-rgb` triplets) + SEMANTIC
+  tokens; ships a greyscale default. `index.css` is the thin product entry
+  (imports base, empty override, documents slop's magenta override as the
+  worked example). A product reskins by overriding ~7 tokens, nothing
+  structural — the exact seam P6 needs. Live at circle.slop.computer.
 - **P4 — Extract packages. ✅ DONE (2026-07-05).** The base is now four
   workspace packages: `@slop/app-kit` (contract), `@slop/os` (client OS —
   Vite bundles its TS source), `@slop/relay-kernel` (server core — builds to
@@ -303,13 +308,14 @@ step. The direction only changes *which* codebase is the donor.
 - **P6 — migrate slop.computer** onto the base: magenta theme, its apps as
   plugins (client + server-authority server plugins). Propagation becomes
   bidirectional here — and this is what triggers P5.
-- **Next up (in-plan): greyscale theme.** The SKILL just shipped; the last
-  first-class base feature from the plan is done. The remaining P3 work is the
-  greyscale default theme — circle currently wears slop's magenta/cyberdelic
-  skin. Splitting the theme into base tokens + a product theme (greyscale for
-  circle, magenta for slop) is both the visual identity circle was always meant
-  to have and a load-bearing step toward P6 (slop selects its own theme over
-  the same base).
+- **Next up.** P0–P4 are done and circle is a complete, live, greyscale,
+  peer-authority product on the extracted base. The two remaining threads are
+  both **P6-flavored** (they need slop.computer to move): the repo split (P5,
+  triggered by a 2nd consumer) and the slop migration itself (P6, incl. the
+  §13.7 direction decision). Absent starting P6, the productive circle-only
+  work left is app breadth (bank, richer notes via a CRDT — §3½) and the
+  blob durability/IPFS checkpoint option (§5). The base platform itself is
+  feature-complete against this plan.
 
 ## 12. How current `circle` code maps in
 
