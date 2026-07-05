@@ -6,3 +6,6 @@ dist/
 .circle-data/
 .circle-secret
 .DS_Store
+
+# TypeScript incremental build info
+*.tsbuildinfo

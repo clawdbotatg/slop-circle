@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, deriveRoomKeys, useMesh } from "@slop/os";
+import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, useMesh } from "@slop/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
@@ -200,6 +200,7 @@ function Room({
   const toggleApp = (id: string) => setOpenApps(o => ({ ...o, [id]: !o[id] }));
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [skillCopied, setSkillCopied] = useState(false);
   // Window positions on the desktop, keyed by stream id. z bumps on focus.
   type Slot = { x: number; y: number; w: number; h: number; z: number };
   const [slots, setSlots] = useState<Record<string, Slot>>({});
@@ -210,6 +211,17 @@ function Room({
     void navigator.clipboard?.writeText(location.href).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    });
+  }, []);
+
+  const copySkill = useCallback(() => {
+    // The SKILL — a markdown brief that lets an agent operate this circle.
+    // Composed client-side (relay stays blind) from the installed apps' own
+    // skill sections + the invite link (its fragment carries the secret).
+    const doc = composeSkill({ apps: WINDOW_APPS, inviteUrl: location.href });
+    void navigator.clipboard?.writeText(doc).then(() => {
+      setSkillCopied(true);
+      setTimeout(() => setSkillCopied(false), 1500);
     });
   }, []);
 
@@ -302,6 +314,9 @@ function Room({
           </button>
         ))}
         <button onClick={copyInvite}>{copied ? "Copied ✓" : "Invite"}</button>
+        <button onClick={copySkill} title="Copy an agent brief for operating this circle">
+          {skillCopied ? "Copied ✓" : "Skill"}
+        </button>
         <button onClick={leave}>Leave</button>
         <span className="slop-menubar__status">
           <span>{mesh.connected ? `${mesh.peers.length} here` : mesh.connectError ?? "connecting…"}</span>

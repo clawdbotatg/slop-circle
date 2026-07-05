@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/.."
 export CIRCLE_URL="${CIRCLE_URL:-http://localhost:8788}"
 
-tests=(e2ee-adversarial passkey-identity cosign chat notes)
+tests=(e2ee-adversarial passkey-identity cosign chat notes skill)
 fails=0
 for t in "${tests[@]}"; do
   printf '%-20s ' "$t"
@@ -16,7 +16,11 @@ for t in "${tests[@]}"; do
   else
     echo "FAIL"; tail -3 /tmp/circle-test-err; fails=$((fails + 1))
   fi
+  # Kill both possible cached-browser names — on this machine playwright uses
+  # Chromium, not "Google Chrome for Testing"; leaving contexts alive starves
+  # later tests' page loads (they flake with "no claim offer").
   pkill -f "Google Chrome for Testing" 2>/dev/null || true
+  pkill -f "Chromium" 2>/dev/null || true
   sleep 5
 done
 echo "----"
