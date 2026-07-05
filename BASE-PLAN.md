@@ -246,11 +246,25 @@ building the base.
   server plugins**.
 - **P3 — Greyscale polish + SKILL end-to-end** (per-app skill docs composed
   into the system skill; agent token minting in the kernel).
-- **P4 — Extract packages.** `@slop/os` + `@slop/relay-kernel` +
-  `@slop/app-kit` publishable; circle = consumer #1.
-- **P5 — (big, later) migrate slop.computer** onto the base: magenta theme,
-  its apps as plugins (client + server-authority server plugins). Propagation
-  becomes bidirectional here.
+- **P4 — Extract packages. ✅ DONE (2026-07-05).** The base is now four
+  workspace packages: `@slop/app-kit` (contract), `@slop/os` (client OS —
+  Vite bundles its TS source), `@slop/relay-kernel` (server core — builds to
+  dist, Node consumes it; build order kernel→relay→web), and the apps.
+  `web/` + `relay/` are the circle product. All green + deployed live.
+- **P5 — split the standalone base repo. DEFERRED (deliberately).** The
+  boundaries are proven and the monorepo already gives clean packages + a
+  physical seam. A separate repo only pays off with a *second* consumer, so
+  the right trigger is **when slop.computer is ready to migrate onto the
+  base** — split then (via `git subtree split` per package) so circle + slop
+  both consume it. Splitting now, with circle the only consumer, is pure
+  cross-repo friction for no gain.
+- **P6 — migrate slop.computer** onto the base: magenta theme, its apps as
+  plugins (client + server-authority server plugins). Propagation becomes
+  bidirectional here — and this is what triggers P5.
+- **Next up (in-plan, no decision needed): the SKILL** — app-kit already
+  carries per-app `skill` strings; wire the kernel `/v1/skill` + agent-token
+  endpoint and the menu action that composes them, so an agent can operate a
+  circle.
 
 ## 12. How current `circle` code maps in
 
