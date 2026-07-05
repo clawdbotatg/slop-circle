@@ -203,17 +203,33 @@ greyscale** (circle). A product ships a token override for its identity
 Lean **build-time** theming (each product bundles its theme) so the static
 client stays IPFS-friendly; runtime theme-swap is a possible later nicety.
 
-## 9. The SKILL (first-class in the base)
+## 9. The SKILL (first-class in the base) — ✅ SHIPPED (2026-07-05)
 
-The menu's **copy-skill** mints a room-scoped **agent token** and copies a
-fetchable **skill URL** (`/v1/skill?token=…&slug=…`) — markdown an agent
-follows to *operate the room*. In the base:
-- The kernel serves `/v1/skill` + mints agent tokens.
-- Each app plugin contributes its own `skill` section; the base composes them
-  into the system skill (so the agent instructions always match the installed
-  apps).
-Agent-operability is a base feature, not a slop extra — and it's especially
-apt for the "civil society + agents" thesis.
+The menu's **Skill** action composes a markdown brief an agent follows to
+*operate the room*, and copies it to the clipboard. `composeSkill()` in
+`@slop/os` assembles a system preamble + **each installed app's own `skill`
+section** (so the instructions always match the installed apps) + the invite
+link. Agent-operability is a base feature, not a slop extra — especially apt
+for the "civil society + agents" thesis.
+
+**Design note — why client-composed, not a kernel agent token.** The original
+sketch (below, kept for the slop.computer contrast) had the kernel mint a
+room-scoped agent token and serve a fetchable `/v1/skill?token=…` URL. That
+fits slop.computer's **server-authority** model — its relay sees content, so a
+server-side token can grant an agent real capability. But circle's relay is
+**blind** (peer-authority, E2EE): a server token could get an agent *into* the
+room but could never let it *read* anything, since the content keys are derived
+from the URL-fragment secret the relay never sees. So for circle the honest
+design is: **compose the skill client-side and let the invite link be the
+credential** — its fragment carries the secret peer-to-peer, the relay stays
+blind, and the agent operates by driving the client with the link. When
+slop.computer migrates onto the base (P6), it can add the kernel-token variant
+for its server-authority apps; the two models coexist, each right for its
+authority model.
+
+*Original (server-authority) sketch, for slop.computer:* the kernel serves
+`/v1/skill` + mints room-scoped agent tokens; each app plugin contributes its
+`skill` section; the base composes them into the system skill.
 
 ## 10. Propagation
 
@@ -244,8 +260,12 @@ building the base.
   validation app (bus + encrypted blob store, no server) — see §3½ — then the
   rest: camera/screen/audio/chat/wallet/bank. Prove circle runs with **zero
   server plugins**.
-- **P3 — Greyscale polish + SKILL end-to-end** (per-app skill docs composed
-  into the system skill; agent token minting in the kernel).
+- **P3 — Greyscale polish + SKILL end-to-end. ✅ SKILL DONE (2026-07-05).**
+  `composeSkill()` in `@slop/os` + a "Skill" menu action compose per-app skill
+  docs + the invite link into an agent brief, copied to the clipboard.
+  Client-composed (relay stays blind) rather than a kernel agent token — see §9
+  for why that's the right model for circle's peer-authority. Greyscale-theme
+  polish is the remaining part of P3.
 - **P4 — Extract packages. ✅ DONE (2026-07-05).** The base is now four
   workspace packages: `@slop/app-kit` (contract), `@slop/os` (client OS —
   Vite bundles its TS source), `@slop/relay-kernel` (server core — builds to
@@ -261,10 +281,13 @@ building the base.
 - **P6 — migrate slop.computer** onto the base: magenta theme, its apps as
   plugins (client + server-authority server plugins). Propagation becomes
   bidirectional here — and this is what triggers P5.
-- **Next up (in-plan, no decision needed): the SKILL** — app-kit already
-  carries per-app `skill` strings; wire the kernel `/v1/skill` + agent-token
-  endpoint and the menu action that composes them, so an agent can operate a
-  circle.
+- **Next up (in-plan): greyscale theme.** The SKILL just shipped; the last
+  first-class base feature from the plan is done. The remaining P3 work is the
+  greyscale default theme — circle currently wears slop's magenta/cyberdelic
+  skin. Splitting the theme into base tokens + a product theme (greyscale for
+  circle, magenta for slop) is both the visual identity circle was always meant
+  to have and a load-bearing step toward P6 (slop selects its own theme over
+  the same base).
 
 ## 12. How current `circle` code maps in
 
