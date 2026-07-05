@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import type { WebSocket } from "ws";
-import { config } from "./config.js";
 import { RoomAuth } from "./room-auth.js";
 import { send } from "./send.js";
 
@@ -33,8 +32,11 @@ export class Room {
   private peers = new Map<string, Peer>();
   private publicationsByPeer = new Map<string, Publication[]>();
 
-  constructor(readonly slug: string) {
-    this.auth = new RoomAuth(join(config.dataDir, "rooms", slug, "auth.json"));
+  constructor(
+    readonly slug: string,
+    readonly dataDir: string,
+  ) {
+    this.auth = new RoomAuth(join(dataDir, "rooms", slug, "auth.json"));
   }
 
   addPeer(peer: Peer): void {
@@ -113,10 +115,10 @@ export class Room {
 
 const rooms = new Map<string, Room>();
 
-export function getOrCreateRoom(slug: string): Room {
+export function getOrCreateRoom(slug: string, dataDir: string): Room {
   let room = rooms.get(slug);
   if (!room) {
-    room = new Room(slug);
+    room = new Room(slug, dataDir);
     rooms.set(slug, room);
   }
   return room;

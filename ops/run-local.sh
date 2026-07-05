@@ -23,7 +23,8 @@ export CIRCLE_DATA_DIR="${CIRCLE_DATA_DIR:-$(pwd)/.circle-data}"
 # clawd-harness exports 8787), which would collide. Force the relay's PORT.
 export PORT="${CIRCLE_PORT:-8788}"
 
-echo "Building client…"
+echo "Building kernel + client…"
+npm run build -w @slop/relay-kernel >/dev/null
 npm run build -w web >/dev/null
 
 echo ""

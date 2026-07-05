@@ -9,9 +9,10 @@ cd "$(dirname "$0")/.."
 HOST="${CIRCLE_DEPLOY_HOST:-slopcomputer}"
 REMOTE="${CIRCLE_DEPLOY_PATH:-~/slop-circle}"
 
-echo "→ Building web + relay locally…"
-npm run build -w web >/dev/null
+echo "→ Building kernel + relay + web locally (order matters — relay imports the kernel dist)…"
+npm run build -w @slop/relay-kernel >/dev/null
 npm run build -w relay >/dev/null
+npm run build -w web >/dev/null
 
 echo "→ Rsyncing to $HOST:$REMOTE …"
 rsync -az \
