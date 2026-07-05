@@ -249,6 +249,28 @@ and is a *separate, later* phase. Until then circle is the reference base and
 slop benefits only once migrated. Don't let the propagation dream block
 building the base.
 
+**Two implementations exist today (be honest about this).** `@slop/os` is a
+*fresh, framework-agnostic reimplementation* of slop's window manager/OS (Vite,
+no Next-isms) — it **looks** like slop.computer but shares **no code** with it.
+slop.computer still runs its own separate monolith and does not consume
+`@slop/os`. So right now there are two parallel windowing codebases. This is
+exactly why circle.slop.computer "isn't really slop computer" — it's a cousin,
+not the same OS. Collapsing the two into one *is* the P6 migration.
+
+**The migration has two possible directions (open — see §13.7):**
+1. **`@slop/os` is the source of truth; slop adopts it.** Keep building the base
+   on circle; later refactor slop's `Desktop.tsx` to render from `@slop/os` +
+   the app registry instead of hardcoded apps. (What the roadmap currently
+   assumes.) Risk: `@slop/os` must grow to match slop's polish/features before
+   slop can drop its own OS.
+2. **Extract the base *from* slop's real code.** Treat slop.computer's actual,
+   polished OS as the thing to package: de-Next-ify it into `@slop/os`, then
+   have both circle and slop consume that. Risk: slop's code is entangled with
+   Next + server-authority assumptions; the extraction is the hard part, and
+   circle's proven Vite/E2EE build would have to re-absorb it.
+Either way **slop.computer must migrate** — that's the unavoidable, expensive
+step. The direction only changes *which* codebase is the donor.
+
 ## 11. Roadmap
 
 - **P0 — Contracts.** `@slop/app-kit`: `defineApp` / `defineServerApp` /
@@ -314,3 +336,7 @@ building the base.
 5. **Theme timing** — build-time (leaning, IPFS-friendly) vs runtime swap.
 6. **When to start the slop.computer migration** — after the base is proven
    by circle (leaning) vs in parallel.
+7. **Migration direction** (see §10, "two directions") — `@slop/os` is the
+   source of truth and slop adopts it (leaning; keeps circle's clean E2EE/Vite
+   base as the donor) vs extract the base from slop's real, polished OS code.
+   Either way slop must migrate; this only decides the donor codebase.
