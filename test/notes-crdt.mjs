@@ -45,9 +45,14 @@ async function enter(first) {
 const A = await enter(true);
 const B = await enter(false);
 
+// Let both peers' bus listeners register before the first edit — live updates
+// are delivered only to already-subscribed peers (durability/late-join is
+// covered by the blob + sync-request, exercised in notes.mjs).
+await new Promise(r => setTimeout(r, 1500));
+
 // Shared base, then wait for B to catch up.
 await A.fill(T, "MIDDLE");
-const baseDeadline = Date.now() + 8000;
+const baseDeadline = Date.now() + 12000;
 while (Date.now() < baseDeadline && (await B.inputValue(T)) !== "MIDDLE") await new Promise(r => setTimeout(r, 200));
 if ((await B.inputValue(T)) !== "MIDDLE") await fail("B never synced the base text");
 
