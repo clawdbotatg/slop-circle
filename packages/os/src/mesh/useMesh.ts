@@ -135,6 +135,9 @@ export function useMesh(
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [publications, setPublications] = useState<Publication[]>([]);
   const [peerAuth, setPeerAuth] = useState<Record<string, PeerAuthState>>({});
+  // Display names never touch the relay (the /signal URL carries only the
+  // slug) — they're announced over the encrypted bus. peerId → handle.
+  const [handles, setHandles] = useState<Record<string, string>>({});
 
   const transportRef = useRef<SignalTransport | null>(null);
   const connectedRef = useRef(false);
@@ -166,6 +169,16 @@ export function useMesh(
     return () => {
       roomListenersRef.current.delete(fn);
     };
+  }, []);
+
+  // Announce my display name to the room over the encrypted bus (the relay
+  // never sees it). Sent on join, when a new peer arrives, and on rename.
+  const broadcastHandle = useCallback(() => {
+    const key = busKeyRef.current;
+    const t = transportRef.current;
+    const h = labelRef.current;
+    if (!key || !t || !h) return;
+    void encryptBus({ __sys: "handle", handle: h }, key).then(payload => t.send({ type: "room_msg", payload }));
   }, []);
 
   const setPeerAuthStatus = useCallback((peerId: string, status: PeerAuthState) => {
@@ -520,6 +533,7 @@ export function useMesh(
         teardownConnections();
         setPeers([]);
         setPublications([]);
+        setHandles({});
       },
       onHello: (id, others, pubs) => {
         myIdRef.current = id;
@@ -530,13 +544,23 @@ export function useMesh(
         // Both peers create the connection; offers flow from
         // onnegotiationneeded and glare is handled politely.
         for (const peer of others) createPeerConnection(peer.id);
+        // Tell the room who I am (over the bus, not the relay).
+        broadcastHandle();
       },
       onPeerJoin: peer => {
         setPeers(prev => (prev.some(p => p.id === peer.id) ? prev : [...prev, peer]));
         createPeerConnection(peer.id);
+        // A newcomer wasn't here for my first announcement — re-send it.
+        broadcastHandle();
       },
       onPeerLeave: peer => {
         setPeers(prev => prev.filter(p => p.id !== peer.id));
+        setHandles(prev => {
+          if (!(peer.id in prev)) return prev;
+          const next = { ...prev };
+          delete next[peer.id];
+          return next;
+        });
         closePeerConnection(peer.id);
       },
       onSignal: (from, kind, payload) => {
@@ -564,7 +588,18 @@ export function useMesh(
         const key = busKeyRef.current;
         if (!key) return;
         void decryptBus(payload, key).then(obj => {
-          if (obj != null) roomListenersRef.current.forEach(fn => fn(from, obj));
+          if (obj == null) return;
+          // Internal system messages (handle announcements) are consumed by
+          // the mesh, not forwarded to app listeners.
+          if (typeof obj === "object" && (obj as { __sys?: string }).__sys === "handle") {
+            const h = (obj as { handle?: unknown }).handle;
+            if (typeof h === "string") {
+              const name = h.slice(0, 32);
+              setHandles(prev => (prev[from] === name ? prev : { ...prev, [from]: name }));
+            }
+            return;
+          }
+          roomListenersRef.current.forEach(fn => fn(from, obj));
         });
       },
     });
@@ -576,7 +611,12 @@ export function useMesh(
       transportRef.current = null;
       teardownConnections();
     };
-  }, [enabled, slug, createPeerConnection, closePeerConnection, handleOffer, handleAnswer, handleIce]);
+  }, [enabled, slug, createPeerConnection, closePeerConnection, handleOffer, handleAnswer, handleIce, broadcastHandle]);
+
+  // Re-announce my name over the bus whenever it changes (live rename).
+  useEffect(() => {
+    if (connectedRef.current) broadcastHandle();
+  }, [label, broadcastHandle]);
 
   // Stream watchdog: a publication with no matching remote stream for too
   // long means a stuck pc — rebuild it and force a fresh offer (the one
@@ -629,7 +669,9 @@ export function useMesh(
 
   return {
     myId,
-    peers,
+    // Overlay bus-announced names: mine is always my live label; others come
+    // from their handle announcements (null until the first one arrives).
+    peers: peers.map(p => ({ ...p, handle: p.id === myId ? label : (handles[p.id] ?? p.handle ?? null) })),
     connected,
     connectError,
     remoteStreams,
