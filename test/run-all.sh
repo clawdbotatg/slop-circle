@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/.."
 export CIRCLE_URL="${CIRCLE_URL:-http://localhost:8788}"
 
-tests=(e2ee-adversarial passkey-identity cosign chat notes skill roster)
+tests=(e2ee-adversarial passkey-identity cosign chat notes notes-crdt skill roster)
 fails=0
 for t in "${tests[@]}"; do
   printf '%-20s ' "$t"
