@@ -1,6 +1,6 @@
 /* circle — product entry.
 
-   The base OS design system lives in theme/base.css (conceptually @slop/os);
+   The base OS design system lives in theme/base.css (conceptually @commons/os);
    it ships a GREYSCALE default palette. A product reskins by overriding ONLY
    the palette tokens below — nothing structural. circle IS the greyscale base,
    so its override is intentionally empty.
@@ -9,18 +9,18 @@
    with exactly this shape (kept here as the worked example of the seam):
 
      :root {
-       --slop-bg: #06030d;
-       --slop-panel: #0a0f24;
-       --slop-panel-light: #1a1638;
-       --slop-text: #e8e0ff;
-       --slop-text-muted: #7878a0;
-       --slop-accent-rgb: 255, 62, 201;      // magenta
-       --slop-accent-dim-rgb: 196, 26, 150;
-       --slop-secondary-rgb: 124, 77, 255;   // purple
-       --slop-live-rgb: 188, 255, 91;        // lime
-       --slop-warn-rgb: 255, 174, 0;         // amber
-       --slop-alert-rgb: 255, 85, 119;       // red
-       --slop-base: radial-gradient(circle at 50% 30%, #14091e 0%, #06030d 70%, #000 100%);
+       --commons-bg: #06030d;
+       --commons-panel: #0a0f24;
+       --commons-panel-light: #1a1638;
+       --commons-text: #e8e0ff;
+       --commons-text-muted: #7878a0;
+       --commons-accent-rgb: 255, 62, 201;      // magenta
+       --commons-accent-dim-rgb: 196, 26, 150;
+       --commons-secondary-rgb: 124, 77, 255;   // purple
+       --commons-live-rgb: 188, 255, 91;        // lime
+       --commons-warn-rgb: 255, 174, 0;         // amber
+       --commons-alert-rgb: 255, 85, 119;       // red
+       --commons-base: radial-gradient(circle at 50% 30%, #14091e 0%, #06030d 70%, #000 100%);
      }
 */
 

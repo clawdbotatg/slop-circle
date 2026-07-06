@@ -41,14 +41,14 @@ export function DesktopBackground() {
   );
   return (
     <div className="slop-desktop-bg" aria-hidden>
-      <div style={{ position: "absolute", inset: 0, background: "var(--slop-base)" }} />
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 50% at 50% 30%, rgba(var(--slop-secondary-rgb), 0.12) 0%, transparent 70%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "var(--commons-base)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 50% at 50% 30%, rgba(var(--commons-secondary-rgb), 0.12) 0%, transparent 70%)" }} />
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.45 }}>
         <defs>
           <pattern id="slop-dot" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
             <rect width="6" height="6" fill="transparent" />
-            <rect x="0" y="0" width="1" height="1" fill="rgb(var(--slop-secondary-rgb))" opacity="0.7" />
-            <rect x="3" y="3" width="1" height="1" fill="rgb(var(--slop-accent-rgb))" opacity="0.5" />
+            <rect x="0" y="0" width="1" height="1" fill="rgb(var(--commons-secondary-rgb))" opacity="0.7" />
+            <rect x="3" y="3" width="1" height="1" fill="rgb(var(--commons-accent-rgb))" opacity="0.5" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#slop-dot)" />
@@ -135,7 +135,7 @@ export function Window({
           height: 20,
           right: 0,
           bottom: 0,
-          background: "repeating-linear-gradient(135deg, var(--slop-bevel-light) 0, var(--slop-bevel-light) 1px, transparent 1px, transparent 3px)",
+          background: "repeating-linear-gradient(135deg, var(--commons-bevel-light) 0, var(--commons-bevel-light) 1px, transparent 1px, transparent 3px)",
         },
       }}
     >
@@ -147,7 +147,7 @@ export function Window({
         </div>
         <div className="slop-titlebar__title">{title}</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, background: "var(--slop-panel)", color: "var(--slop-text)", overflow: "auto", ...bodyStyle }}>
+      <div style={{ flex: 1, minHeight: 0, background: "var(--commons-panel)", color: "var(--commons-text)", overflow: "auto", ...bodyStyle }}>
         {children}
       </div>
     </Rnd>

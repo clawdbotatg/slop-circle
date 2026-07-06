@@ -1,8 +1,8 @@
 /* =====================================================================
-   Slop OS — base stylesheet (the @slop/os design system).
+   Commons — base stylesheet (the @commons/os design system).
 
-   Conceptually owned by @slop/os: window/menu/desktop chrome + the token
-   contract. It ships a GREYSCALE default palette ("Slop Platinum" — a nod to
+   Conceptually owned by @commons/os: window/menu/desktop chrome + the token
+   contract. It ships a GREYSCALE default palette ("Platinum" — a nod to
    classic Mac's greyscale, and fitting for circle's meet-in-the-shadows
    ethos). A product reskins by overriding ONLY the palette tokens (see the
    product override block in index.css); nothing structural needs to change.
@@ -10,9 +10,9 @@
    Two token layers:
      • PALETTE  — raw colors a product overrides. Accent/secondary/etc are also
                   exposed as `-rgb` triplets so component CSS can vary alpha
-                  (rgba(var(--slop-accent-rgb), 0.5)).
+                  (rgba(var(--commons-accent-rgb), 0.5)).
      • SEMANTIC — everything the components actually use, derived from palette.
-   Legacy hue names (--slop-magenta/purple/cyan/lime/amber/red) are kept as
+   Legacy hue names (--commons-magenta/purple/cyan/lime/amber/red) are kept as
    aliases so inline styles in apps resolve without per-file edits. When slop
    migrates onto the base it overrides the palette to its magenta identity.
    ===================================================================== */
@@ -21,46 +21,46 @@
 
 :root {
   /* ===== PALETTE (a product theme overrides these) ===== */
-  --slop-bg: #0b0b0d;
-  --slop-panel: #141418;
-  --slop-panel-light: #26262e;
-  --slop-text: #eaeaef;
-  --slop-text-muted: #8a8a94;
+  --commons-bg: #0b0b0d;
+  --commons-panel: #141418;
+  --commons-panel-light: #26262e;
+  --commons-text: #eaeaef;
+  --commons-text-muted: #8a8a94;
 
   /* accent = primary interactive / brand; secondary = chrome lines + glow */
-  --slop-accent-rgb: 198, 198, 210;
-  --slop-accent-dim-rgb: 150, 150, 164;
-  --slop-secondary-rgb: 118, 118, 132;
-  --slop-live-rgb: 222, 222, 232;
-  --slop-warn-rgb: 172, 172, 182;
-  --slop-alert-rgb: 206, 206, 216;
+  --commons-accent-rgb: 198, 198, 210;
+  --commons-accent-dim-rgb: 150, 150, 164;
+  --commons-secondary-rgb: 118, 118, 132;
+  --commons-live-rgb: 222, 222, 232;
+  --commons-warn-rgb: 172, 172, 182;
+  --commons-alert-rgb: 206, 206, 216;
 
-  --slop-font-display: "Silkscreen", "Courier New", ui-monospace, "Menlo", monospace;
-  --slop-font-body: "Silkscreen", "Courier New", ui-monospace, "Menlo", monospace;
-  --slop-font-mono: ui-monospace, "Menlo", "Monaco", "Consolas", monospace;
+  --commons-font-display: "Silkscreen", "Courier New", ui-monospace, "Menlo", monospace;
+  --commons-font-body: "Silkscreen", "Courier New", ui-monospace, "Menlo", monospace;
+  --commons-font-mono: ui-monospace, "Menlo", "Monaco", "Consolas", monospace;
 
   /* ===== SEMANTIC (derived — components use these) ===== */
-  --slop-accent: rgb(var(--slop-accent-rgb));
-  --slop-accent-dim: rgb(var(--slop-accent-dim-rgb));
-  --slop-secondary: rgb(var(--slop-secondary-rgb));
-  --slop-live: rgb(var(--slop-live-rgb));
+  --commons-accent: rgb(var(--commons-accent-rgb));
+  --commons-accent-dim: rgb(var(--commons-accent-dim-rgb));
+  --commons-secondary: rgb(var(--commons-secondary-rgb));
+  --commons-live: rgb(var(--commons-live-rgb));
 
-  --slop-base: radial-gradient(circle at 50% 30%, #17171d 0%, #0b0b0d 70%, #000 100%);
-  --slop-panel-glass: linear-gradient(180deg, rgba(20, 20, 26, 0.95) 0%, rgba(11, 11, 15, 0.92) 100%);
-  --slop-bevel-light: rgba(255, 255, 255, 0.16);
-  --slop-bevel-dark: #000;
+  --commons-base: radial-gradient(circle at 50% 30%, #17171d 0%, #0b0b0d 70%, #000 100%);
+  --commons-panel-glass: linear-gradient(180deg, rgba(20, 20, 26, 0.95) 0%, rgba(11, 11, 15, 0.92) 100%);
+  --commons-bevel-light: rgba(255, 255, 255, 0.16);
+  --commons-bevel-dark: #000;
 
-  --slop-titlebar: linear-gradient(180deg, var(--slop-secondary) 0%, rgba(var(--slop-secondary-rgb), 0.55) 50%, rgba(var(--slop-secondary-rgb), 0.85) 100%);
-  --slop-titlebar-active: linear-gradient(180deg, var(--slop-accent) 0%, rgba(var(--slop-accent-rgb), 0.55) 50%, rgba(var(--slop-accent-rgb), 0.85) 100%);
+  --commons-titlebar: linear-gradient(180deg, var(--commons-secondary) 0%, rgba(var(--commons-secondary-rgb), 0.55) 50%, rgba(var(--commons-secondary-rgb), 0.85) 100%);
+  --commons-titlebar-active: linear-gradient(180deg, var(--commons-accent) 0%, rgba(var(--commons-accent-rgb), 0.55) 50%, rgba(var(--commons-accent-rgb), 0.85) 100%);
 
   /* ===== LEGACY HUE ALIASES (so inline app styles resolve) ===== */
-  --slop-magenta: var(--slop-accent);
-  --slop-magenta-dim: var(--slop-accent-dim);
-  --slop-purple: var(--slop-secondary);
-  --slop-cyan: var(--slop-accent);
-  --slop-lime: var(--slop-live);
-  --slop-amber: rgb(var(--slop-warn-rgb));
-  --slop-red: rgb(var(--slop-alert-rgb));
+  --commons-magenta: var(--commons-accent);
+  --commons-magenta-dim: var(--commons-accent-dim);
+  --commons-purple: var(--commons-secondary);
+  --commons-cyan: var(--commons-accent);
+  --commons-lime: var(--commons-live);
+  --commons-amber: rgb(var(--commons-warn-rgb));
+  --commons-red: rgb(var(--commons-alert-rgb));
 }
 
 * {
@@ -70,9 +70,9 @@
 
 html,
 body {
-  background: var(--slop-bg);
-  color: var(--slop-text);
-  font-family: var(--slop-font-body);
+  background: var(--commons-bg);
+  color: var(--commons-text);
+  font-family: var(--commons-font-body);
   font-size: 15px;
   letter-spacing: 0.04em;
   min-height: 100vh;
@@ -84,35 +84,35 @@ body {
 
 h1, h2, h3 {
   line-height: 1.15;
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   font-weight: 400;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  text-shadow: 0 0 6px rgba(var(--slop-accent-rgb), 0.25);
+  text-shadow: 0 0 6px rgba(var(--commons-accent-rgb), 0.25);
 }
 
 code, pre, .mono {
-  font-family: var(--slop-font-mono);
+  font-family: var(--commons-font-mono);
 }
 
 .dim {
-  color: var(--slop-text-muted);
+  color: var(--commons-text-muted);
   font-size: 0.85rem;
   line-height: 1.4;
 }
 .err {
-  color: rgb(var(--slop-alert-rgb));
+  color: rgb(var(--commons-alert-rgb));
   font-size: 0.85rem;
 }
 
 /* --- window chrome --- */
 .slop-window {
-  background: var(--slop-panel-glass);
-  color: var(--slop-text);
-  border: 1px solid rgba(var(--slop-accent-rgb), 0.5);
+  background: var(--commons-panel-glass);
+  color: var(--commons-text);
+  border: 1px solid rgba(var(--commons-accent-rgb), 0.5);
   border-radius: 0;
   backdrop-filter: blur(20px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 24px rgba(var(--slop-accent-rgb), 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 24px rgba(var(--commons-accent-rgb), 0.2);
   position: relative;
   overflow: hidden;
 }
@@ -120,9 +120,9 @@ code, pre, .mono {
 .slop-titlebar {
   background:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0px, rgba(0, 0, 0, 0.28) 1px, transparent 1px, transparent 3px),
-    var(--slop-titlebar);
+    var(--commons-titlebar);
   color: #000;
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 14px;
@@ -137,7 +137,7 @@ code, pre, .mono {
 .slop-titlebar--active {
   background:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0px, rgba(0, 0, 0, 0.28) 1px, transparent 1px, transparent 3px),
-    var(--slop-titlebar-active);
+    var(--commons-titlebar-active);
 }
 .slop-titlebar__title {
   display: flex;
@@ -158,7 +158,7 @@ code, pre, .mono {
   justify-content: center;
   align-self: stretch;
   width: 26px;
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   font-size: 15px;
   color: rgba(0, 0, 0, 0.78);
   border-right: 1px solid rgba(0, 0, 0, 0.45);
@@ -178,45 +178,45 @@ code, pre, .mono {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: linear-gradient(180deg, var(--slop-panel-light) 0%, var(--slop-panel) 100%);
-  color: var(--slop-text);
-  font-family: var(--slop-font-display);
+  background: linear-gradient(180deg, var(--commons-panel-light) 0%, var(--commons-panel) 100%);
+  color: var(--commons-text);
+  font-family: var(--commons-font-display);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 13px;
   padding: 5px 14px;
-  border: 1px solid rgba(var(--slop-secondary-rgb), 0.6);
+  border: 1px solid rgba(var(--commons-secondary-rgb), 0.6);
   border-radius: 0;
   cursor: pointer;
   user-select: none;
-  box-shadow: 0 0 8px rgba(var(--slop-secondary-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 8px rgba(var(--commons-secondary-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition: transform 0.05s, box-shadow 0.1s;
 }
-.slop-button:hover { box-shadow: 0 0 16px rgba(var(--slop-secondary-rgb), 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.slop-button:hover { box-shadow: 0 0 16px rgba(var(--commons-secondary-rgb), 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
 .slop-button:active { transform: translateY(1px); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5); }
 .slop-button:disabled { opacity: 0.5; cursor: default; transform: none; }
 .slop-button--primary {
-  background: linear-gradient(180deg, var(--slop-accent) 0%, var(--slop-accent-dim) 100%);
+  background: linear-gradient(180deg, var(--commons-accent) 0%, var(--commons-accent-dim) 100%);
   color: #111;
-  border: 1px solid var(--slop-accent);
+  border: 1px solid var(--commons-accent);
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 12px rgba(var(--slop-accent-rgb), 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(var(--commons-accent-rgb), 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 /* --- text field --- */
 .slop-textfield {
   background: rgba(0, 0, 0, 0.6);
-  color: var(--slop-text);
-  font-family: var(--slop-font-display);
+  color: var(--commons-text);
+  font-family: var(--commons-font-display);
   font-size: 14px;
   letter-spacing: 0.04em;
   padding: 6px 10px;
-  border: 1px solid rgba(var(--slop-accent-rgb), 0.4);
+  border: 1px solid rgba(var(--commons-accent-rgb), 0.4);
   border-radius: 0;
   outline: none;
-  box-shadow: inset 0 0 10px rgba(var(--slop-accent-rgb), 0.15);
+  box-shadow: inset 0 0 10px rgba(var(--commons-accent-rgb), 0.15);
 }
-.slop-textfield:focus { border-color: var(--slop-accent); box-shadow: inset 0 0 10px rgba(var(--slop-accent-rgb), 0.3); }
+.slop-textfield:focus { border-color: var(--commons-accent); box-shadow: inset 0 0 10px rgba(var(--commons-accent-rgb), 0.3); }
 
 /* --- menu bar --- */
 .slop-menubar {
@@ -232,23 +232,23 @@ code, pre, .mono {
   flex-wrap: wrap;
   background:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0px, rgba(0, 0, 0, 0.32) 1px, transparent 1px, transparent 3px),
-    linear-gradient(180deg, rgba(var(--slop-accent-rgb), 0.18) 0%, rgba(0, 0, 0, 0.7) 100%);
-  border-bottom: 1px solid var(--slop-accent);
-  box-shadow: 0 2px 16px rgba(var(--slop-accent-rgb), 0.45), inset 0 1px 0 rgba(var(--slop-accent-rgb), 0.35);
+    linear-gradient(180deg, rgba(var(--commons-accent-rgb), 0.18) 0%, rgba(0, 0, 0, 0.7) 100%);
+  border-bottom: 1px solid var(--commons-accent);
+  box-shadow: 0 2px 16px rgba(var(--commons-accent-rgb), 0.45), inset 0 1px 0 rgba(var(--commons-accent-rgb), 0.35);
   padding: 4px 6px;
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   user-select: none;
 }
 .slop-menubar__brand {
-  background: linear-gradient(180deg, var(--slop-accent) 0%, var(--slop-secondary) 100%);
+  background: linear-gradient(180deg, var(--commons-accent) 0%, var(--commons-secondary) 100%);
   color: #111;
   padding: 4px 12px;
   font-size: 15px;
   border: 1px solid rgba(0, 0, 0, 0.6);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.45), inset -1px -1px 0 rgba(0, 0, 0, 0.45), 0 0 12px rgba(var(--slop-accent-rgb), 0.55);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.45), inset -1px -1px 0 rgba(0, 0, 0, 0.45), 0 0 12px rgba(var(--commons-accent-rgb), 0.55);
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 }
 .slop-menubar__status {
@@ -256,17 +256,17 @@ code, pre, .mono {
   align-items: center;
   gap: 10px;
   margin-left: auto;
-  font-family: var(--slop-font-body);
-  color: var(--slop-text-muted);
+  font-family: var(--commons-font-body);
+  color: var(--commons-text-muted);
   font-size: 12px;
 }
 .slop-badge {
   padding: 2px 8px;
   border: 1px solid transparent;
 }
-.slop-badge--rosa { color: var(--slop-live); border-color: rgba(var(--slop-live-rgb), 0.4); background: rgba(var(--slop-live-rgb), 0.08); }
-.slop-badge--warn { color: rgb(var(--slop-warn-rgb)); border-color: rgba(var(--slop-warn-rgb), 0.4); }
-.slop-badge--alert { color: rgb(var(--slop-alert-rgb)); border-color: rgba(var(--slop-alert-rgb), 0.5); background: rgba(var(--slop-alert-rgb), 0.1); }
+.slop-badge--rosa { color: var(--commons-live); border-color: rgba(var(--commons-live-rgb), 0.4); background: rgba(var(--commons-live-rgb), 0.08); }
+.slop-badge--warn { color: rgb(var(--commons-warn-rgb)); border-color: rgba(var(--commons-warn-rgb), 0.4); }
+.slop-badge--alert { color: rgb(var(--commons-alert-rgb)); border-color: rgba(var(--commons-alert-rgb), 0.5); background: rgba(var(--commons-alert-rgb), 0.1); }
 
 /* --- live pulse --- */
 .slop-pulse {
@@ -274,19 +274,19 @@ code, pre, .mono {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--slop-live) 0%, #6a6a74 100%);
-  box-shadow: 0 0 10px var(--slop-live), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+  background: radial-gradient(circle at 30% 30%, var(--commons-live) 0%, #6a6a74 100%);
+  box-shadow: 0 0 10px var(--commons-live), inset 0 1px 1px rgba(255, 255, 255, 0.5);
   animation: slop-pulse 1.2s ease-in-out infinite;
 }
 .slop-pulse--off { background: radial-gradient(circle at 30% 30%, #55555e 0%, #222 100%); box-shadow: 0 0 6px #55555e; animation: none; }
 @keyframes slop-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.85); } }
 
 /* --- desktop background --- */
-.slop-desktop-bg { position: fixed; inset: 0; z-index: 0; background: var(--slop-base); pointer-events: none; }
+.slop-desktop-bg { position: fixed; inset: 0; z-index: 0; background: var(--commons-base); pointer-events: none; }
 
 .slop-divider {
   height: 1px;
-  background: repeating-linear-gradient(90deg, rgba(var(--slop-accent-rgb), 0.5) 0, rgba(var(--slop-accent-rgb), 0.5) 4px, transparent 4px, transparent 8px);
+  background: repeating-linear-gradient(90deg, rgba(var(--commons-accent-rgb), 0.5) 0, rgba(var(--commons-accent-rgb), 0.5) 4px, transparent 4px, transparent 8px);
   margin: 0.25rem 0;
 }
 .slop-resize { z-index: 3; }
@@ -298,7 +298,7 @@ code, pre, .mono {
   gap: 0.75rem;
   padding: 1rem;
 }
-.panel-body label { font-size: 0.72rem; color: var(--slop-accent); text-transform: uppercase; letter-spacing: 0.06em; }
+.panel-body label { font-size: 0.72rem; color: var(--commons-accent); text-transform: uppercase; letter-spacing: 0.06em; }
 .panel-body .row { display: flex; gap: 0.5rem; }
 .panel-body .row .slop-textfield { flex: 1; min-width: 0; }
 
@@ -311,17 +311,17 @@ code, pre, .mono {
 }
 
 .card {
-  background: var(--slop-panel-glass);
+  background: var(--commons-panel-glass);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(var(--slop-accent-rgb), 0.5);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(var(--slop-accent-rgb), 0.2);
+  border: 1px solid rgba(var(--commons-accent-rgb), 0.5);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(var(--commons-accent-rgb), 0.2);
   padding: 1.75rem;
   width: min(24rem, 92vw);
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
 }
-.card h1 { font-size: 1.5rem; color: var(--slop-accent); }
+.card h1 { font-size: 1.5rem; color: var(--commons-accent); }
 .card form { display: flex; flex-direction: column; gap: 0.75rem; }
 
 /* desktop metaphor */
@@ -338,9 +338,9 @@ code, pre, .mono {
   left: 50%;
   transform: translateX(-50%);
   z-index: 8000;
-  background: rgba(var(--slop-alert-rgb), 0.15);
-  border: 1px solid rgb(var(--slop-alert-rgb));
-  color: rgb(var(--slop-alert-rgb));
+  background: rgba(var(--commons-alert-rgb), 0.15);
+  border: 1px solid rgb(var(--commons-alert-rgb));
+  color: rgb(var(--commons-alert-rgb));
   padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
 }
@@ -349,7 +349,7 @@ code, pre, .mono {
   top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: var(--slop-text-muted);
+  color: var(--commons-text-muted);
   text-align: center;
   font-size: 0.9rem;
   max-width: 22rem;
@@ -359,25 +359,25 @@ code, pre, .mono {
 .addr {
   display: block;
   background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(var(--slop-accent-rgb), 0.3);
+  border: 1px solid rgba(var(--commons-accent-rgb), 0.3);
   padding: 0.5rem 0.6rem;
-  font-family: var(--slop-font-mono);
+  font-family: var(--commons-font-mono);
   font-size: 0.78rem;
   word-break: break-all;
 }
-.balance { font-size: 1.1rem; color: var(--slop-live); font-family: var(--slop-font-mono); }
-.ok { color: var(--slop-live); font-size: 0.85rem; }
+.balance { font-size: 1.1rem; color: var(--commons-live); font-family: var(--commons-font-mono); }
+.ok { color: var(--commons-live); font-size: 0.85rem; }
 
 .roster { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.roster li { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(var(--slop-secondary-rgb), 0.4); padding: 0.15rem 0.6rem; font-size: 0.8rem; }
+.roster li { background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(var(--commons-secondary-rgb), 0.4); padding: 0.15rem 0.6rem; font-size: 0.8rem; }
 .chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem; min-height: 8rem; max-height: 40vh; }
 .chat-msg { font-size: 0.85rem; word-break: break-word; }
-.chat-name { color: var(--slop-accent); }
+.chat-name { color: var(--commons-accent); }
 
-.proposal { border: 1px solid rgba(var(--slop-secondary-rgb), 0.4); padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }
-.proposal.ready { border-color: rgba(var(--slop-live-rgb), 0.5); background: rgba(var(--slop-live-rgb), 0.06); }
+.proposal { border: 1px solid rgba(var(--commons-secondary-rgb), 0.4); padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.proposal.ready { border-color: rgba(var(--commons-live-rgb), 0.5); background: rgba(var(--commons-live-rgb), 0.06); }
 .proposal-memo { font-size: 0.85rem; }
-.proposal-status { font-size: 0.8rem; color: var(--slop-accent); }
+.proposal-status { font-size: 0.8rem; color: var(--commons-accent); }
 
 .tile-waiting {
   width: 100%;
@@ -386,54 +386,54 @@ code, pre, .mono {
   align-items: center;
   justify-content: center;
   background: #000;
-  color: var(--slop-text-muted);
+  color: var(--commons-text-muted);
   font-size: 0.8rem;
 }
 
 /* Global element skinning so every plain button/input reads as slop
    (menu bar, join form, wallet + chat panels) with no per-element markup. */
 button {
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 13px;
   padding: 5px 12px;
-  color: var(--slop-text);
-  background: linear-gradient(180deg, var(--slop-panel-light) 0%, var(--slop-panel) 100%);
-  border: 1px solid rgba(var(--slop-secondary-rgb), 0.6);
+  color: var(--commons-text);
+  background: linear-gradient(180deg, var(--commons-panel-light) 0%, var(--commons-panel) 100%);
+  border: 1px solid rgba(var(--commons-secondary-rgb), 0.6);
   border-radius: 0;
   cursor: pointer;
-  box-shadow: 0 0 8px rgba(var(--slop-secondary-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 8px rgba(var(--commons-secondary-rgb), 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
-button:hover { box-shadow: 0 0 16px rgba(var(--slop-secondary-rgb), 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+button:hover { box-shadow: 0 0 16px rgba(var(--commons-secondary-rgb), 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
 button:active { transform: translateY(1px); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5); }
 button:disabled { opacity: 0.5; cursor: default; }
-button.ghost { background: transparent; box-shadow: none; border-color: rgba(var(--slop-accent-rgb), 0.4); }
+button.ghost { background: transparent; box-shadow: none; border-color: rgba(var(--commons-accent-rgb), 0.4); }
 
 input, select, textarea {
-  font-family: var(--slop-font-display);
+  font-family: var(--commons-font-display);
   font-size: 14px;
   letter-spacing: 0.04em;
   padding: 6px 10px;
-  color: var(--slop-text);
+  color: var(--commons-text);
   background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(var(--slop-accent-rgb), 0.4);
+  border: 1px solid rgba(var(--commons-accent-rgb), 0.4);
   border-radius: 0;
   outline: none;
-  box-shadow: inset 0 0 10px rgba(var(--slop-accent-rgb), 0.15);
+  box-shadow: inset 0 0 10px rgba(var(--commons-accent-rgb), 0.15);
 }
-input:focus, select:focus { border-color: var(--slop-accent); }
-input::placeholder { color: var(--slop-text-muted); }
+input:focus, select:focus { border-color: var(--commons-accent); }
+input::placeholder { color: var(--commons-text-muted); }
 
 /* Wallet + chat slide-in panels, slop-skinned. */
 .wallet-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: flex-end; z-index: 9500; }
 .wallet-panel {
   width: min(30rem, 100vw);
   height: 100%;
-  background: var(--slop-panel-glass);
+  background: var(--commons-panel-glass);
   backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(var(--slop-accent-rgb), 0.5);
-  box-shadow: -12px 0 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(var(--slop-accent-rgb), 0.2);
+  border-left: 1px solid rgba(var(--commons-accent-rgb), 0.5);
+  box-shadow: -12px 0 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(var(--commons-accent-rgb), 0.2);
   padding: 1rem 1.25rem;
   overflow-y: auto;
   display: flex;
@@ -442,14 +442,14 @@ input::placeholder { color: var(--slop-text-muted); }
 }
 .wallet-head { display: flex; align-items: center; justify-content: space-between; }
 .wallet-head h2 { font-size: 1rem; }
-.wallet-section { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid rgba(var(--slop-accent-rgb), 0.25); padding-top: 1rem; }
-.wallet-section label, .wallet-section summary { font-size: 0.72rem; color: var(--slop-accent); text-transform: uppercase; letter-spacing: 0.06em; }
+.wallet-section { display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid rgba(var(--commons-accent-rgb), 0.25); padding-top: 1rem; }
+.wallet-section label, .wallet-section summary { font-size: 0.72rem; color: var(--commons-accent); text-transform: uppercase; letter-spacing: 0.06em; }
 .wallet-section summary { cursor: pointer; }
 .wallet-row { display: flex; gap: 0.5rem; }
 .wallet-row input { flex: 1; min-width: 0; }
-.wallet-addr { display: block; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(var(--slop-accent-rgb), 0.3); padding: 0.5rem 0.6rem; font-family: var(--slop-font-mono); font-size: 0.78rem; word-break: break-all; }
-.wallet-balance { font-size: 1.1rem; color: var(--slop-live); font-family: var(--slop-font-mono); }
-.wallet-signer-ok { color: var(--slop-live); font-size: 0.85rem; }
+.wallet-addr { display: block; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(var(--commons-accent-rgb), 0.3); padding: 0.5rem 0.6rem; font-family: var(--commons-font-mono); font-size: 0.78rem; word-break: break-all; }
+.wallet-balance { font-size: 1.1rem; color: var(--commons-live); font-family: var(--commons-font-mono); }
+.wallet-signer-ok { color: var(--commons-live); font-size: 0.85rem; }
 
 /* Wallet as a window-app body (Window provides the frame + scroll). */
 .wallet-body { padding: 1rem; }

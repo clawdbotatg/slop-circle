@@ -36,7 +36,7 @@ export function Chat({ mesh, label }: AppServices) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "0.5rem", gap: "0.5rem" }}>
       <div>
-        <label style={{ fontSize: "0.72rem", color: "var(--slop-cyan)" }}>In the room ({peers.length})</label>
+        <label style={{ fontSize: "0.72rem", color: "var(--commons-cyan)" }}>In the room ({peers.length})</label>
         <ul className="roster">
           {peers.map(p => (
             <li key={p.id}>{p.handle || "anon"}</li>

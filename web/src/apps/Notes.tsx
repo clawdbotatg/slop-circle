@@ -92,15 +92,15 @@ export function Notes({ slug, roomKey, mesh }: AppServices) {
           resize: "none",
           border: "none",
           background: "rgba(0,0,0,0.4)",
-          color: "var(--slop-text)",
-          fontFamily: "var(--slop-font-mono)",
+          color: "var(--commons-text)",
+          fontFamily: "var(--commons-font-mono)",
           fontSize: "0.9rem",
           padding: "0.6rem",
           outline: "none",
           boxShadow: "none",
         }}
       />
-      <div style={{ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: "var(--slop-text-muted)", borderTop: "1px solid rgba(255,62,201,0.25)" }}>
+      <div style={{ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: "var(--commons-text-muted)", borderTop: "1px solid rgba(255,62,201,0.25)" }}>
         {status} · shared over the encrypted bus, stored blind
       </div>
     </div>
