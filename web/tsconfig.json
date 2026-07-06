@@ -11,8 +11,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@slop/app-kit": ["../packages/app-kit/src/index.ts"],
-      "@slop/os": ["../packages/os/src/index.ts"]
+      "@commons/app-kit": ["../packages/app-kit/src/index.ts"],
+      "@commons/os": ["../packages/os/src/index.ts"]
     }
   },
   "include": ["src", "../packages"]

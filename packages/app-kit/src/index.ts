@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-// @slop/app-kit — the contract an app is written against. The base OS renders
+// @commons/app-kit — the contract an app is written against. The base OS renders
 // launchers + manages windows purely from apps that satisfy this; products
 // (circle, and later slop.computer) select which apps to register. This is
 // the seam of the base platform (see BASE-PLAN.md); it lives in its own

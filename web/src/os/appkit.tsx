@@ -1,14 +1,14 @@
 import { Chat } from "../apps/Chat";
 import { Notes } from "../apps/Notes";
 import { WalletPanel } from "../wallet/WalletPanel";
-import type { WindowApp } from "@slop/app-kit";
+import type { WindowApp } from "@commons/app-kit";
 
 // The app REGISTRY — circle's selection of apps over the base contract. The
-// contract types (AppServices, WindowApp) now live in the @slop/app-kit
+// contract types (AppServices, WindowApp) now live in the @commons/app-kit
 // package; re-export them so apps can keep importing from "../os/appkit".
 // A product = this registry + a theme + backend wiring. Adding an app is one
 // entry here; media capture + mute/invite/leave stay OS-level.
-export type { AppServices, WindowApp } from "@slop/app-kit";
+export type { AppServices, WindowApp } from "@commons/app-kit";
 
 export const WINDOW_APPS: WindowApp[] = [
   {

@@ -1,5 +1,5 @@
 {
-  "name": "@slop/os",
+  "name": "@commons/os",
   "private": true,
   "version": "0.0.1",
   "type": "module",

@@ -1,9 +1,11 @@
-# Slop OS — base platform plan
+# Commons — base platform plan
 
-> Status: **plan / architecture, not built** (2026-07-04). This is the
-> direction for turning "slop computer" from one bespoke app into a **base
-> OS + a plugin system**, with `circle` as the greyscale base product and
-> `slop.computer` as a themed superset. Companion to
+> Status: **base built + live (via circle); slop migration pending** (updated
+> 2026-07-05). This is the direction for turning "slop computer" from one
+> bespoke app into a **base OS + a plugin system**. The base OS is named
+> **Commons** — the shared, forkable ground both products stand on (npm scope
+> `@commons/*`: `os`, `relay-kernel`, `app-kit`). `circle` is the greyscale
+> base product; `slop.computer` will be a themed superset. Companion to
 > [PLAN.md](PLAN.md) (the circle app itself) and
 > [cypherpunkPlan.md-in-slop] (the original fork rationale).
 
@@ -152,19 +154,19 @@ not a kernel requirement.
 
 Base = **two halves + a contract**:
 
-- **`@slop/os`** (client): window manager, desktop, menu bar + dropdowns,
+- **`@commons/os`** (client): window manager, desktop, menu bar + dropdowns,
   the SKILL action, plugin registry, theme tokens (greyscale default),
   service contexts (`useMesh`, `useIdentity`, `useWallet`, `useRoom`,
   `useSkill`). Framework-agnostic React — **no Next-isms** — so both a Vite
   app (circle, static/IPFS) and a Next app (slop) can consume it.
-- **`@slop/relay-kernel`** (server): rooms/auth/presence/signaling/bus/blob/
+- **`@commons/relay-kernel`** (server): rooms/auth/presence/signaling/bus/blob/
   TURN + the server-plugin host. Small and generic.
-- **`@slop/app-kit`** (contract): what an app is written against —
+- **`@commons/app-kit`** (contract): what an app is written against —
   `defineApp` (client), optional `defineServerApp` (server), a `skill`
   markdown doc, theme-token usage.
 
-**Apps are packages** (`@slop/app-chat`, `@slop/app-wallet`,
-`@slop/app-poker`…), each with a client half and optionally a server half
+**Apps are packages** (`@commons/app-chat`, `@commons/app-wallet`,
+`@commons/app-poker`…), each with a client half and optionally a server half
 and a skill doc. **Products select apps + a theme:**
 - **circle**: `os` + `relay-kernel` + `[camera, screen, audio, chat, notes,
   wallet, bank]` + greyscale theme. Vite client + a relay that is ~just the
@@ -207,7 +209,7 @@ client stays IPFS-friendly; runtime theme-swap is a possible later nicety.
 
 The menu's **Skill** action composes a markdown brief an agent follows to
 *operate the room*, and copies it to the clipboard. `composeSkill()` in
-`@slop/os` assembles a system preamble + **each installed app's own `skill`
+`@commons/os` assembles a system preamble + **each installed app's own `skill`
 section** (so the instructions always match the installed apps) + the invite
 link. Agent-operability is a base feature, not a slop extra — especially apt
 for the "civil society + agents" thesis.
@@ -234,7 +236,7 @@ authority model.
 ## 10. Propagation
 
 North star: *change the base → it reaches slop.computer.* Mechanism:
-**versioned base packages** (`@slop/os`, `@slop/relay-kernel`, `@slop/app-kit`)
+**versioned base packages** (`@commons/os`, `@commons/relay-kernel`, `@commons/app-kit`)
 that both products depend on; bump + reinstall + redeploy to propagate.
 Controlled (not instant), keeps circle (static/IPFS) and slop (Next) release
 cycles independent, matches the "fork family" idea in slop's DESIGN.md.
@@ -249,22 +251,22 @@ and is a *separate, later* phase. Until then circle is the reference base and
 slop benefits only once migrated. Don't let the propagation dream block
 building the base.
 
-**Two implementations exist today (be honest about this).** `@slop/os` is a
+**Two implementations exist today (be honest about this).** `@commons/os` is a
 *fresh, framework-agnostic reimplementation* of slop's window manager/OS (Vite,
 no Next-isms) — it **looks** like slop.computer but shares **no code** with it.
 slop.computer still runs its own separate monolith and does not consume
-`@slop/os`. So right now there are two parallel windowing codebases. This is
+`@commons/os`. So right now there are two parallel windowing codebases. This is
 exactly why circle.slop.computer "isn't really slop computer" — it's a cousin,
 not the same OS. Collapsing the two into one *is* the P6 migration.
 
 **The migration has two possible directions (open — see §13.7):**
-1. **`@slop/os` is the source of truth; slop adopts it.** Keep building the base
-   on circle; later refactor slop's `Desktop.tsx` to render from `@slop/os` +
+1. **`@commons/os` is the source of truth; slop adopts it.** Keep building the base
+   on circle; later refactor slop's `Desktop.tsx` to render from `@commons/os` +
    the app registry instead of hardcoded apps. (What the roadmap currently
-   assumes.) Risk: `@slop/os` must grow to match slop's polish/features before
+   assumes.) Risk: `@commons/os` must grow to match slop's polish/features before
    slop can drop its own OS.
 2. **Extract the base *from* slop's real code.** Treat slop.computer's actual,
-   polished OS as the thing to package: de-Next-ify it into `@slop/os`, then
+   polished OS as the thing to package: de-Next-ify it into `@commons/os`, then
    have both circle and slop consume that. Risk: slop's code is entangled with
    Next + server-authority assumptions; the extraction is the hard part, and
    circle's proven Vite/E2EE build would have to re-absorb it.
@@ -273,20 +275,20 @@ step. The direction only changes *which* codebase is the donor.
 
 ## 11. Roadmap
 
-- **P0 — Contracts.** `@slop/app-kit`: `defineApp` / `defineServerApp` /
+- **P0 — Contracts.** `@commons/app-kit`: `defineApp` / `defineServerApp` /
   `skill` / theme tokens / service-context interfaces. Mostly design.
 - **P1 — OS + kernel.** Extract circle's current window/menu/theme into
-  `@slop/os` (add real dropdown menus + the SKILL action); extract the relay
-  into `@slop/relay-kernel` and **add the encrypted blob store**.
+  `@commons/os` (add real dropdown menus + the SKILL action); extract the relay
+  into `@commons/relay-kernel` and **add the encrypted blob store**.
 - **P2 — Basic apps as plugins.** Build **Notes first** as the peer-authority
   validation app (bus + encrypted blob store, no server) — see §3½ — then the
   rest: camera/screen/audio/chat/wallet/bank. Prove circle runs with **zero
   server plugins**.
 - **P3 — Greyscale polish + SKILL end-to-end. ✅ DONE (2026-07-05).**
-  (1) The SKILL: `composeSkill()` in `@slop/os` + a "Skill" menu action compose
+  (1) The SKILL: `composeSkill()` in `@commons/os` + a "Skill" menu action compose
   per-app skill docs + the invite link into an agent brief, copied to the
   clipboard. Client-composed (relay stays blind) not a kernel token — see §9.
-  (2) Greyscale theme: `web/src/theme/base.css` (the @slop/os design system) now
+  (2) Greyscale theme: `web/src/theme/base.css` (the @commons/os design system) now
   routes ALL color through a two-layer token contract — a PALETTE a product
   overrides (accent/secondary/live/warn/alert as `-rgb` triplets) + SEMANTIC
   tokens; ships a greyscale default. `index.css` is the thin product entry
@@ -294,8 +296,8 @@ step. The direction only changes *which* codebase is the donor.
   worked example). A product reskins by overriding ~7 tokens, nothing
   structural — the exact seam P6 needs. Live at circle.slop.computer.
 - **P4 — Extract packages. ✅ DONE (2026-07-05).** The base is now four
-  workspace packages: `@slop/app-kit` (contract), `@slop/os` (client OS —
-  Vite bundles its TS source), `@slop/relay-kernel` (server core — builds to
+  workspace packages: `@commons/app-kit` (contract), `@commons/os` (client OS —
+  Vite bundles its TS source), `@commons/relay-kernel` (server core — builds to
   dist, Node consumes it; build order kernel→relay→web), and the apps.
   `web/` + `relay/` are the circle product. All green + deployed live.
 - **P5 — split the standalone base repo. DEFERRED (deliberately).** The
@@ -319,14 +321,14 @@ step. The direction only changes *which* codebase is the donor.
 
 ## 12. How current `circle` code maps in
 
-- `web/src/ui/slop.tsx` (Window, DesktopBackground, menu bar) → `@slop/os`
+- `web/src/ui/slop.tsx` (Window, DesktopBackground, menu bar) → `@commons/os`
   (add dropdown-menu system + SKILL).
 - `web/src/mesh/*`, `web/src/crypto/*` (mesh client, E2EE bus, frame crypto)
-  → `@slop/os` service layer (`useMesh`, encrypted bus).
-- `relay/src/*` (rooms, room-auth, signal, send) → `@slop/relay-kernel`;
+  → `@commons/os` service layer (`useMesh`, encrypted bus).
+- `relay/src/*` (rooms, room-auth, signal, send) → `@commons/relay-kernel`;
   **add** the encrypted blob store primitive.
-- `web/src/wallet/*` → `@slop/app-wallet` + `@slop/app-bank` plugins.
-- `ChatPanel` → `@slop/app-chat`; new `@slop/app-notes`; camera/screen/audio
+- `web/src/wallet/*` → `@commons/app-wallet` + `@commons/app-bank` plugins.
+- `ChatPanel` → `@commons/app-chat`; new `@commons/app-notes`; camera/screen/audio
   → share-app plugins wrapping `useLocalMedia` + `mesh.publish`.
 
 ## 13. Open decisions (still discussing)
@@ -338,11 +340,14 @@ step. The direction only changes *which* codebase is the donor.
    possible; slop: pragmatic servers.)
 3. **Repo/packaging** — base packages inside the circle repo now, publish
    later (leaning yes) vs a dedicated base repo immediately.
-4. **Naming/scope** — `@slop/*` (family) vs a neutral scope.
+4. **Naming/scope** — ✅ DECIDED (2026-07-05): the base OS is **Commons**,
+   npm scope **`@commons/*`** (the shared, forkable ground both products
+   extend). Renamed from the provisional `@slop/*` so neither product reads as
+   "the base."
 5. **Theme timing** — build-time (leaning, IPFS-friendly) vs runtime swap.
 6. **When to start the slop.computer migration** — after the base is proven
    by circle (leaning) vs in parallel.
-7. **Migration direction** (see §10, "two directions") — `@slop/os` is the
+7. **Migration direction** (see §10, "two directions") — `@commons/os` is the
    source of truth and slop adopts it (leaning; keeps circle's clean E2EE/Vite
    base as the donor) vs extract the base from slop's real, polished OS code.
    Either way slop must migrate; this only decides the donor codebase.

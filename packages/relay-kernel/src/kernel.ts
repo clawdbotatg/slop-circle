@@ -8,7 +8,7 @@ import { roomCookieName, signRoomCookie, verifyRoomCookie } from "./room-auth.js
 import { getOrCreateRoom, isValidSlug, type Publication, type StreamKind } from "./room.js";
 import { send } from "./send.js";
 
-// @slop/relay-kernel — the blind, generic server core every slop-style
+// @commons/relay-kernel — the blind, generic server core every slop-style
 // product's relay is built on. It owns rooms + the password gate, peer
 // presence, WebRTC signaling passthrough, the encrypted message bus, the
 // encrypted blob store, and TURN credential minting — and nothing app- or

@@ -24,7 +24,7 @@ export CIRCLE_DATA_DIR="${CIRCLE_DATA_DIR:-$(pwd)/.circle-data}"
 export PORT="${CIRCLE_PORT:-8788}"
 
 echo "Building kernel + client…"
-npm run build -w @slop/relay-kernel >/dev/null
+npm run build -w @commons/relay-kernel >/dev/null
 npm run build -w web >/dev/null
 
 echo ""

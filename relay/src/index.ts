@@ -3,11 +3,11 @@ import { resolve } from "node:path";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
-import { registerKernel } from "@slop/relay-kernel";
+import { registerKernel } from "@commons/relay-kernel";
 import Fastify from "fastify";
 import { config } from "./config.js";
 
-// The circle relay = the @slop/relay-kernel (blind rooms/auth/signaling/bus/
+// The circle relay = the @commons/relay-kernel (blind rooms/auth/signaling/bus/
 // blob/turn core) + circle's product wiring: it also serves the static
 // client. It holds no media, no keys, no messages — seize the box and you get
 // a scrypt hash and connection timestamps. circle registers ZERO server-plugin

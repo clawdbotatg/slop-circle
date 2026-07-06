@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getBlob, putBlob } from "@slop/os";
+import { getBlob, putBlob } from "@commons/os";
 import type { AppServices } from "../os/appkit";
 
 // The peer-authority validation app. A shared room notepad:

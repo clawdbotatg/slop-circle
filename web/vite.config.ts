@@ -12,8 +12,8 @@ export default defineConfig({
   base: "./",
   resolve: {
     alias: {
-      "@slop/app-kit": pkg("app-kit/src/index.ts"),
-      "@slop/os": pkg("os/src/index.ts"),
+      "@commons/app-kit": pkg("app-kit/src/index.ts"),
+      "@commons/os": pkg("os/src/index.ts"),
     },
   },
   server: {

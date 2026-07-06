@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, useMesh } from "@slop/os";
+import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, useMesh } from "@commons/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 

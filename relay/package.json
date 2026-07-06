@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@slop/relay-kernel": "*",
+    "@commons/relay-kernel": "*",
     "fastify": "^5.2.0",
     "@fastify/websocket": "^11.0.0",
     "@fastify/cookie": "^11.0.0",

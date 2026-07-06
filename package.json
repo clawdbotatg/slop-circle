@@ -11,7 +11,7 @@
     "start": "bash ops/run-local.sh",
     "relay": "npm run dev -w relay",
     "web": "npm run dev -w web",
-    "build": "npm run build -w @slop/relay-kernel && npm run build -w relay && npm run build -w web",
+    "build": "npm run build -w @commons/relay-kernel && npm run build -w relay && npm run build -w web",
     "deploy": "bash ops/deploy.sh"
   }
 }

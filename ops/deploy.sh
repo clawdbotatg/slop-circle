@@ -10,7 +10,7 @@ HOST="${CIRCLE_DEPLOY_HOST:-slopcomputer}"
 REMOTE="${CIRCLE_DEPLOY_PATH:-~/slop-circle}"
 
 echo "→ Building kernel + relay + web locally (order matters — relay imports the kernel dist)…"
-npm run build -w @slop/relay-kernel >/dev/null
+npm run build -w @commons/relay-kernel >/dev/null
 npm run build -w relay >/dev/null
 npm run build -w web >/dev/null
 

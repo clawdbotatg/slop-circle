@@ -1,4 +1,4 @@
-import type { WindowApp } from "@slop/app-kit";
+import type { WindowApp } from "@commons/app-kit";
 
 // The SKILL — a markdown brief that turns "here's a circle" into "an agent can
 // operate this circle." The base composes it from the installed apps' own
