@@ -1,3 +1,4 @@
+import { Bank } from "../apps/Bank";
 import { Chat } from "../apps/Chat";
 import { Notes } from "../apps/Notes";
 import { WalletPanel } from "../wallet/WalletPanel";
@@ -31,5 +32,12 @@ export const WINDOW_APPS: WindowApp[] = [
     defaultSize: { w: 420, h: 520 },
     Component: WalletPanel,
     skill: "Wallet is a passkey identity + personal wallet + shared multisig: propose a tx, co-sign to threshold, execute.",
+  },
+  {
+    id: "bank",
+    label: "Bank",
+    defaultSize: { w: 400, h: 460 },
+    Component: Bank,
+    skill: "Bank shows the room's shared treasury (multisig) address, its on-chain balance, and proposal activity. Set the treasury address once and it syncs to everyone.",
   },
 ];

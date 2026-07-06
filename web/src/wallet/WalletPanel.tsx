@@ -3,6 +3,7 @@ import { formatEther, type Address } from "viem";
 import { createPasskey, loadLastPasskeyIdentity, signExecHashWithPasskey, type PasskeyIdentity } from "./passkey";
 import { keccak256, parseEther, stringToBytes, type Hex } from "viem";
 import { useSharedWallet } from "./useSharedWallet";
+import { useRoomWallet } from "./useRoomWallet";
 import { broadcastViaBrowserWallet } from "./execute";
 import type { AppServices } from "../os/appkit";
 import { predictPersonalWalletAddress } from "./multisig";
@@ -25,7 +26,7 @@ const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 // The Wallet window-app: passkey identity + personal wallet + shared multisig
 // (propose / co-sign / execute). Rendered inside an OS-managed Window.
-export function WalletPanel({ mesh }: AppServices) {
+export function WalletPanel({ slug, roomKey, mesh }: AppServices) {
   const [identity, setIdentity] = useState<PasskeyIdentity | null>(() => loadLastPasskeyIdentity());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -111,7 +112,13 @@ export function WalletPanel({ mesh }: AppServices) {
 
   // --- shared circle wallet (propose + co-sign over the room bus) ---
   const shared = useSharedWallet(mesh, identity);
+  // The room's shared treasury address (synced over bus + blob). Prefill the
+  // proposal form from it, and publish it for everyone when we propose.
+  const roomTreasury = useRoomWallet(slug, roomKey, mesh);
   const [roomWallet, setRoomWallet] = useState("");
+  useEffect(() => {
+    if (roomTreasury.address && !roomWallet) setRoomWallet(roomTreasury.address);
+  }, [roomTreasury.address, roomWallet]);
   const [threshold, setThreshold] = useState(2);
   const [target, setTarget] = useState("");
   const [amount, setAmount] = useState("");
@@ -123,7 +130,14 @@ export function WalletPanel({ mesh }: AppServices) {
     setExecState(s => ({ ...s, [id]: "broadcasting…" }));
     try {
       const hash = await broadcastViaBrowserWallet(p);
-      setExecState(s => ({ ...s, [id]: `sent: ${hash.slice(0, 12)}…` }));
+      setExecState(s => ({ ...s, [id]: `sent ${hash.slice(0, 12)}… · confirming…` }));
+      // Wait for the receipt so we report success/revert, not just "sent".
+      try {
+        const rcpt = await makePublicClient().waitForTransactionReceipt({ hash });
+        setExecState(s => ({ ...s, [id]: rcpt.status === "success" ? `confirmed ✓ ${hash.slice(0, 12)}…` : `reverted ✗ ${hash.slice(0, 12)}…` }));
+      } catch {
+        setExecState(s => ({ ...s, [id]: `sent ${hash.slice(0, 12)}… (couldn't confirm — check explorer)` }));
+      }
     } catch (e) {
       setExecState(s => ({ ...s, [id]: (e as Error).message }));
     }
@@ -133,6 +147,9 @@ export function WalletPanel({ mesh }: AppServices) {
     try {
       if (!/^0x[0-9a-fA-F]{40}$/.test(roomWallet)) throw new Error("enter the room wallet (multisig) address");
       if (!/^0x[0-9a-fA-F]{40}$/.test(target)) throw new Error("enter a valid recipient address");
+      // Publish this multisig as the room treasury so Bank + every member
+      // shares it (no-op if it's already the set one).
+      if (roomWallet !== roomTreasury.address) roomTreasury.setAddress(roomWallet);
       shared.propose({
         multisig: roomWallet as Address,
         target: target as Address,
