@@ -76,6 +76,32 @@ const dy = after.y - before.y;
 if (Math.abs(dx - 240) > 60 || Math.abs(dy - 140) > 60) await fail(`B's window did not follow A's move (dx=${dx.toFixed(0)} dy=${dy.toFixed(0)}, expected ~240,140)`);
 console.log(`move synced: A dragged the window, B followed (dx=${dx.toFixed(0)} dy=${dy.toFixed(0)}) ✓`);
 
+// A maximizes → B's window fills the desktop (width grows to ~viewport).
+const winA = () => A.locator(".slop-window", { has: A.locator(".slop-titlebar__title", { hasText: "NOTES" }) });
+const preW = (await notesWin(B).first().boundingBox()).width;
+await winA().locator(".slop-titlebar__dot--zoom").first().click();
+let maxW = preW;
+let zd = Date.now() + 8000;
+while (Date.now() < zd) {
+  maxW = (await notesWin(B).first().boundingBox())?.width ?? preW;
+  if (maxW > 900) break;
+  await new Promise(r => setTimeout(r, 300));
+}
+if (maxW < 900) await fail(`B's window did not maximize (width stayed ${maxW.toFixed(0)})`);
+console.log(`maximize synced: A zoomed, B filled to ${maxW.toFixed(0)}px ✓`);
+
+// A restores → B's window shrinks back.
+await winA().locator(".slop-titlebar__dot--zoom").first().click();
+let rW = maxW;
+zd = Date.now() + 8000;
+while (Date.now() < zd) {
+  rW = (await notesWin(B).first().boundingBox())?.width ?? maxW;
+  if (rW < 600) break;
+  await new Promise(r => setTimeout(r, 300));
+}
+if (rW >= 600) await fail(`B's window did not restore (width stayed ${rW.toFixed(0)})`);
+console.log(`restore synced: B shrank back to ${rW.toFixed(0)}px ✓`);
+
 // A minimizes → B's window collapses to a titlebar pill.
 const fullH = (await notesWin(B).first().boundingBox()).height;
 await A.locator(".slop-window", { has: A.locator(".slop-titlebar__title", { hasText: "NOTES" }) }).locator(".slop-titlebar__dot--minimize").first().click();

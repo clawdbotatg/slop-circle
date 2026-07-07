@@ -207,6 +207,24 @@ function Room({
   const desk = useSharedDesktop(slug, busKey, mesh);
   // Remembers each window's pre-minimize height so restoring re-inflates it.
   const savedH = useRef<Record<string, number>>({});
+  // Pre-maximize rect per window. Maximize drives geometry through the shared
+  // slot (like slop), so it fills the desktop for everyone; a second zoom
+  // restores the saved rect.
+  const savedRect = useRef<Record<string, { x: number; y: number; width: number; height: number }>>({});
+  const toggleZoom = (slot: SlotPosition) => {
+    const r = savedRect.current[slot.id];
+    if (r) {
+      delete savedRect.current[slot.id];
+      desk.updateSlot({ id: slot.id, ...r });
+    } else {
+      // Fill the desktop MINUS the fixed menu bar (measured, like slop's
+      // containerInset) so the maximized window's own controls stay clickable
+      // even when the bar wraps to two rows.
+      const barBottom = (document.querySelector(".slop-menubar")?.getBoundingClientRect().bottom ?? 46) + 6;
+      savedRect.current[slot.id] = { x: slot.x, y: slot.y, width: slot.width, height: slot.height };
+      desk.updateSlot({ id: slot.id, x: 6, y: barBottom, width: window.innerWidth - 12, height: window.innerHeight - barBottom - 8 });
+    }
+  };
   const copyInvite = useCallback(() => {
     // The full URL (incl. the #slug:secret fragment) IS the invite — the
     // secret rides the fragment, which never touches the server.
@@ -428,6 +446,7 @@ function Room({
                 savedH.current[id] = slot.height;
                 desk.updateSlot({ ...slot, height: TITLEBAR_HEIGHT });
               }}
+              onZoom={() => toggleZoom(slot)}
               onTitleClick={() => desk.updateSlot({ ...slot, height: savedH.current[id] ?? def.height })}
               onMove={({ x, y }) => desk.updateSlot({ ...slot, x, y })}
               onResize={({ x, y, width, height }) => desk.updateSlot({ ...slot, x, y, width, height })}
@@ -464,6 +483,7 @@ function Room({
                 savedH.current[app.id] = slot.height;
                 desk.updateSlot({ ...slot, height: TITLEBAR_HEIGHT });
               }}
+              onZoom={() => toggleZoom(slot)}
               onTitleClick={() => desk.updateSlot({ ...slot, height: savedH.current[app.id] ?? def.height })}
               onMove={({ x, y }) => desk.updateSlot({ ...slot, x, y })}
               onResize={({ x, y, width, height }) => desk.updateSlot({ ...slot, x, y, width, height })}

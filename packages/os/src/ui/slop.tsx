@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
+import { useMemo, useRef, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 
 // Slop UI kit ported from slop-computer-live's components/ui (Next-isms
@@ -173,6 +173,9 @@ export type WindowProps = {
   onClose?: () => void;
   /** Collapse to a pill — the parent sets height to TITLEBAR_HEIGHT (shared). */
   onMinimize?: () => void;
+  /** Maximize/restore — the parent drives geometry through updateSlot so it
+   *  syncs to every peer (slop's model). */
+  onZoom?: () => void;
   /** Click the title while docked to restore — the parent restores height. */
   onTitleClick?: () => void;
   onMove?: (p: { x: number; y: number }) => void;
@@ -199,21 +202,16 @@ export function Window({
   onFocus,
   onClose,
   onMinimize,
+  onZoom,
   onTitleClick,
   onMove,
   onResize,
   bodyStyle,
   children,
 }: WindowProps) {
-  const [maxed, setMaxed] = useState(false);
   const minimized = height <= TITLEBAR_HEIGHT; // slop's isDocked
-  const handleZoom = () => setMaxed(m => !m);
-  const pos = maxed ? { x: 0, y: 0 } : { x, y };
-  const size = maxed
-    ? { width: "100%", height: "100%" }
-    : minimized
-      ? { width: PILL_WIDTH, height: TITLEBAR_HEIGHT }
-      : { width, height };
+  const pos = { x, y };
+  const size = minimized ? { width: PILL_WIDTH, height: TITLEBAR_HEIGHT } : { width, height };
   return (
     <Rnd
       position={pos}
@@ -223,9 +221,8 @@ export function Window({
       bounds="parent"
       dragHandleClassName="slop-titlebar"
       cancel=".slop-titlebar__dot"
-      disableDragging={maxed}
       enableResizing={
-        minimized || maxed
+        minimized
           ? false
           : { right: true, bottom: true, bottomRight: true, top: false, left: false, topLeft: false, topRight: false, bottomLeft: false }
       }
@@ -248,11 +245,11 @@ export function Window({
         <div className="slop-titlebar__dots" data-grab="false">
           <Dot kind="close" onClick={onClose} />
           <Dot kind="minimize" onClick={onMinimize} />
-          <Dot kind="zoom" onClick={handleZoom} />
+          <Dot kind="zoom" onClick={onZoom} />
         </div>
         <div
           className="slop-titlebar__title"
-          onDoubleClick={handleZoom}
+          onDoubleClick={onZoom}
           onClick={minimized ? onTitleClick : undefined}
           style={minimized ? { cursor: "pointer" } : undefined}
           title={minimized ? "Click to restore" : undefined}
