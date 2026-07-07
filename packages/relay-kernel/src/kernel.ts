@@ -1,7 +1,7 @@
 /// <reference types="@fastify/cookie" />
 /// <reference types="@fastify/websocket" />
 import { createHmac, randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { roomCookieName, signRoomCookie, verifyRoomCookie } from "./room-auth.js";
@@ -108,6 +108,23 @@ export function registerKernel(app: FastifyInstance, cfg: KernelConfig): void {
 
   // --- Encrypted blob store: durable per-room key/value the relay can't read. ---
   const blobPath = (slug: string, key: string) => join(cfg.dataDir, "rooms", slug, "blobs", `${key}.blob`);
+
+  // List a room's blob keys — lets a member export the whole encrypted room
+  // for portable, operator-independent durability (they still can't read it).
+  app.get<{ Params: { slug: string } }>("/v1/rooms/:slug/blobs", async (req, reply) => {
+    reply.header("cache-control", "no-store");
+    const { slug } = req.params;
+    if (!isValidSlug(slug)) return reply.code(400).send({ error: "bad-slug" });
+    if (!hasValidRoomCookie(req, slug)) return reply.code(401).send({ error: "room-auth-required" });
+    try {
+      const keys = readdirSync(join(cfg.dataDir, "rooms", slug, "blobs"))
+        .filter(f => f.endsWith(".blob"))
+        .map(f => f.slice(0, -".blob".length));
+      return { keys };
+    } catch {
+      return { keys: [] };
+    }
+  });
 
   app.get<{ Params: { slug: string; key: string } }>("/v1/rooms/:slug/blob/:key", async (req, reply) => {
     reply.header("cache-control", "no-store");

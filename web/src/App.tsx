@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, useMesh } from "@commons/os";
+import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, exportRoom, importRoom, useMesh } from "@commons/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
@@ -201,6 +201,8 @@ function Room({
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [skillCopied, setSkillCopied] = useState(false);
+  const [vaultMsg, setVaultMsg] = useState("");
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
   // Window positions on the desktop, keyed by stream id. z bumps on focus.
   type Slot = { x: number; y: number; w: number; h: number; z: number };
   const [slots, setSlots] = useState<Record<string, Slot>>({});
@@ -213,6 +215,41 @@ function Room({
       setTimeout(() => setCopied(false), 1500);
     });
   }, []);
+
+  // Backup: export the whole encrypted room to a portable archive file. The
+  // relay only ever held ciphertext, so this bundle can be restored onto ANY
+  // Commons relay (or this one after a wipe) — operator-independent durability.
+  const doBackup = useCallback(async () => {
+    setVaultMsg("backing up…");
+    try {
+      const arc = await exportRoom(slug);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(arc, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `circle-${slug}-${arc.contentHash.slice(0, 8)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setVaultMsg(`backed up ${Object.keys(arc.blobs).length} items · ${arc.contentHash.slice(0, 8)}`);
+      setTimeout(() => setVaultMsg(""), 3000);
+    } catch (e) {
+      setVaultMsg(`backup failed: ${(e as Error).message}`);
+    }
+  }, [slug]);
+
+  const onRestoreFile = useCallback(
+    async (file: File) => {
+      setVaultMsg("restoring…");
+      try {
+        const arc = JSON.parse(await file.text());
+        const { imported, total } = await importRoom(slug, arc);
+        setVaultMsg(`restored ${imported}/${total} — reloading…`);
+        setTimeout(() => location.reload(), 800);
+      } catch (e) {
+        setVaultMsg(`restore failed: ${(e as Error).message}`);
+      }
+    },
+    [slug],
+  );
 
   const copySkill = useCallback(() => {
     // The SKILL — a markdown brief that lets an agent operate this circle.
@@ -317,8 +354,27 @@ function Room({
         <button onClick={copySkill} title="Copy an agent brief for operating this circle">
           {skillCopied ? "Copied ✓" : "Skill"}
         </button>
+        <button onClick={() => void doBackup()} data-testid="backup" title="Export the encrypted room — restore it onto any relay">
+          Backup
+        </button>
+        <button onClick={() => restoreInputRef.current?.click()} title="Restore an exported room archive into this room">
+          Restore
+        </button>
+        <input
+          ref={restoreInputRef}
+          type="file"
+          accept="application/json"
+          data-testid="restore-input"
+          style={{ display: "none" }}
+          onChange={e => {
+            const f = e.target.files?.[0];
+            if (f) void onRestoreFile(f);
+            e.target.value = "";
+          }}
+        />
         <button onClick={leave}>Leave</button>
         <span className="slop-menubar__status">
+          {vaultMsg && <span data-testid="vault-msg">{vaultMsg}</span>}
           <span>{mesh.connected ? `${mesh.peers.length} here` : mesh.connectError ?? "connecting…"}</span>
           <span
             className={`slop-badge ${mesh.encrypted ? "slop-badge--rosa" : "slop-badge--warn"}`}

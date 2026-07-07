@@ -13,4 +13,5 @@ export * from "./ui/StreamView";
 export * from "./mesh/useMesh";
 export * from "./crypto/roomKeys";
 export * from "./blob";
+export * from "./checkpoint";
 export * from "./skill";
