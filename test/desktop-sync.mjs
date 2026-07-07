@@ -115,6 +115,11 @@ while (Date.now() < md) {
 if (minH >= 40) await fail(`B's window did not minimize (height stayed ${minH.toFixed(0)})`);
 console.log(`minimize synced: A minimized, B collapsed to a ${minH.toFixed(0)}px pill ✓`);
 
+// The pill docks to the bottom of B's OWN viewport (slop's taskbar).
+const pill = await notesWin(B).first().boundingBox();
+if (!pill || pill.y < 600) await fail(`minimized pill did not dock to the bottom (y=${pill?.y?.toFixed(0)})`);
+console.log(`docked: B's pill sits in the bottom taskbar (y=${pill.y.toFixed(0)}) ✓`);
+
 console.log("MILESTONE PASS: shared desktop — open, move, and minimize all sync across peers (relay-blind)");
 await browser.close();
 process.exit(0);

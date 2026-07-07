@@ -221,6 +221,7 @@ export function Window({
       bounds="parent"
       dragHandleClassName="slop-titlebar"
       cancel=".slop-titlebar__dot"
+      disableDragging={minimized}
       enableResizing={
         minimized
           ? false

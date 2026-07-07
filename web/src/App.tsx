@@ -339,6 +339,16 @@ function Room({
     });
   }, [mesh.publications, mesh.remoteStreams, mesh.myId, streams]);
 
+  // Minimized windows dock into a bottom taskbar (like slop). "Minimized" is
+  // shared (slot height <= TITLEBAR_HEIGHT); each viewer lines the docked pills
+  // up along its OWN bottom edge, so it works across different screen sizes.
+  const DOCK_W = 232;
+  const minimizedIds = [
+    ...tiles.map(t => t.pub.streamId),
+    ...WINDOW_APPS.filter(a => desk.openWindowIds.has(a.id)).map(a => a.id),
+  ].filter(id => (desk.slots[id]?.height ?? 999) <= TITLEBAR_HEIGHT);
+  const dockPos = (id: string) => ({ x: 8 + Math.max(0, minimizedIds.indexOf(id)) * DOCK_W, y: window.innerHeight - TITLEBAR_HEIGHT - 8 });
+
   return (
     <>
       <DesktopBackground />
@@ -431,12 +441,13 @@ function Room({
           const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "⋯ " : "";
           const kind = pub.kind === "screen" ? "SCREEN" : pub.kind === "audio" ? "AUDIO" : "CAM";
           const title = `${kind} — ${mark}${pub.label}${mine ? " (you)" : ""}`;
+          const dock = slot.height <= TITLEBAR_HEIGHT ? dockPos(id) : null;
           return (
             <Window
               key={id}
               title={title}
-              x={slot.x}
-              y={slot.y}
+              x={dock ? dock.x : slot.x}
+              y={dock ? dock.y : slot.y}
               width={slot.width}
               height={slot.height}
               zIndex={slot.z}
@@ -468,12 +479,13 @@ function Room({
           const def: SlotPosition = { id: app.id, x: 150 + i * 40, y: 80 + i * 40, width: app.defaultSize.w, height: app.defaultSize.h, z: 6 };
           const slot = desk.slots[app.id] ?? def;
           const Comp = app.Component;
+          const dock = slot.height <= TITLEBAR_HEIGHT ? dockPos(app.id) : null;
           return (
             <Window
               key={app.id}
               title={app.label.toUpperCase()}
-              x={slot.x}
-              y={slot.y}
+              x={dock ? dock.x : slot.x}
+              y={dock ? dock.y : slot.y}
               width={slot.width}
               height={slot.height}
               zIndex={slot.z}
