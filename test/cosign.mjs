@@ -59,7 +59,7 @@ async function member(first) {
     await page.click("text=Create room");
   }
   await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
-  await page.getByRole("button", { name: "Wallet", exact: true }).click();
+  await page.locator(".slop-icon__btn", { hasText: "Wallet" }).dblclick();
   await page.waitForSelector(".wallet-body", { timeout: 4000 });
   await page.click("text=Create passkey identity");
   await page.waitForSelector(".wallet-addr", { timeout: 8000 });

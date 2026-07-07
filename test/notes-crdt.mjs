@@ -37,7 +37,7 @@ async function enter(first) {
     await p.click("text=Create room");
   }
   await p.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
-  await p.getByRole("button", { name: "Notes", exact: true }).click();
+  await p.locator(".slop-icon__btn", { hasText: "Notes" }).dblclick();
   await p.waitForSelector(T, { timeout: 8000 }).catch(() => fail("notes did not open"));
   return p;
 }

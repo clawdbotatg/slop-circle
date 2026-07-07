@@ -37,7 +37,7 @@ async function enter(first, name) {
   }
   await p.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail(`${name}: not admitted`));
   await p.fill('input[placeholder="your name"]', name);
-  await p.getByRole("button", { name: "Chat", exact: true }).click();
+  await p.locator(".slop-icon__btn", { hasText: "Chat" }).dblclick();
   await p.waitForSelector(".roster", { timeout: 8000 }).catch(() => fail(`${name}: chat didn't open`));
   return p;
 }

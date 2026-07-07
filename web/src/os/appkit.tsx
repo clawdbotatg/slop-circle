@@ -15,6 +15,7 @@ export const WINDOW_APPS: WindowApp[] = [
   {
     id: "notes",
     label: "Notes",
+    icon: "📝",
     defaultSize: { w: 380, h: 320 },
     Component: Notes,
     skill: "Notes is a shared room notepad. Read/append text; edits sync to everyone and persist.",
@@ -22,6 +23,7 @@ export const WINDOW_APPS: WindowApp[] = [
   {
     id: "chat",
     label: "Chat",
+    icon: "💬",
     defaultSize: { w: 340, h: 380 },
     Component: Chat,
     skill: "Chat sends a line to everyone in the room over the encrypted bus.",
@@ -29,6 +31,7 @@ export const WINDOW_APPS: WindowApp[] = [
   {
     id: "wallet",
     label: "Wallet",
+    icon: "👛",
     defaultSize: { w: 420, h: 520 },
     Component: WalletPanel,
     skill: "Wallet is a passkey identity + personal wallet + shared multisig: propose a tx, co-sign to threshold, execute.",
@@ -36,6 +39,7 @@ export const WINDOW_APPS: WindowApp[] = [
   {
     id: "bank",
     label: "Bank",
+    icon: "🏦",
     defaultSize: { w: 400, h: 460 },
     Component: Bank,
     skill: "Bank shows the room's shared treasury (multisig) address, its on-chain balance, and proposal activity. Set the treasury address once and it syncs to everyone.",

@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/.."
 export CIRCLE_URL="${CIRCLE_URL:-http://localhost:8788}"
 
-tests=(e2ee-adversarial passkey-identity cosign chat notes notes-crdt skill roster bank portable)
+tests=(e2ee-adversarial passkey-identity cosign chat notes notes-crdt skill roster bank portable desktop-sync)
 fails=0
 for t in "${tests[@]}"; do
   printf '%-20s ' "$t"
@@ -21,7 +21,7 @@ for t in "${tests[@]}"; do
   # later tests' page loads (they flake with "no claim offer").
   pkill -f "Google Chrome for Testing" 2>/dev/null || true
   pkill -f "Chromium" 2>/dev/null || true
-  sleep 5
+  sleep 8
 done
 echo "----"
 [ "$fails" -eq 0 ] && echo "all green" || { echo "$fails failed"; exit 1; }

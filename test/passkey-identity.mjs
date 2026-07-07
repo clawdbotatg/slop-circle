@@ -67,7 +67,7 @@ await page.waitForSelector("text=doesn't exist yet", { timeout: 6000 }).catch(()
 await page.click("text=Create room");
 await page.waitForSelector(".slop-menubar", { timeout: 6000 });
 
-await page.getByRole("button", { name: "Wallet", exact: true }).click();
+await page.locator(".slop-icon__btn", { hasText: "Wallet" }).dblclick();
 await page.waitForSelector(".wallet-body", { timeout: 4000 });
 await page.click("text=Create passkey identity");
 
@@ -94,7 +94,7 @@ await page.reload();
 await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => {});
 // A reload lands on the join gate (fragment persists) → it re-auths and enters.
 await page.waitForSelector(".slop-menubar", { timeout: 8000 }).catch(() => fail("did not re-enter room after reload"));
-await page.getByRole("button", { name: "Wallet", exact: true }).click();
+await page.locator(".slop-icon__btn", { hasText: "Wallet" }).dblclick();
 await page.waitForSelector(".wallet-addr", { timeout: 6000 }).catch(() => fail("identity did not persist across reload"));
 const addr2 = (await page.textContent(".wallet-addr"))?.trim() ?? "";
 if (addr2 !== addr1) await fail(`identity changed across reload: ${addr1} -> ${addr2}`);

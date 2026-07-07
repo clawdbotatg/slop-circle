@@ -26,6 +26,8 @@ export type AppServices = {
 export type WindowApp = {
   id: string;
   label: string;
+  /** Desktop-icon glyph (emoji; rendered greyscale). */
+  icon?: string;
   defaultSize: { w: number; h: number };
   Component: ComponentType<AppServices>;
   /** Agent instructions for operating this app — composed into the SKILL. */

@@ -42,7 +42,7 @@ await p.click("text=Create room");
 await p.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
 
 // Write a note and let it persist to the encrypted blob.
-await p.getByRole("button", { name: "Notes", exact: true }).click();
+await p.locator(".slop-icon__btn", { hasText: "Notes" }).dblclick();
 await p.waitForSelector('[data-testid="notes-text"]', { timeout: 8000 });
 await p.fill('[data-testid="notes-text"]', NOTE);
 await new Promise(r => setTimeout(r, 1500));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AudioSurface, DesktopBackground, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, exportRoom, importRoom, useMesh } from "@commons/os";
+import { AudioSurface, DesktopBackground, DesktopIcon, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, exportRoom, importRoom, useMesh, useSharedDesktop, type Slot } from "@commons/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
@@ -195,18 +195,16 @@ function Room({
   // Services handed to every window-app (fresh each render for live data; the
   // mesh's send/subscribe callbacks are stable so app effects don't churn).
   const services: AppServices = { slug, roomKey: busKey, label, mesh };
-  // Which registered window-apps are open on the desktop.
-  const [openApps, setOpenApps] = useState<Record<string, boolean>>({});
-  const toggleApp = (id: string) => setOpenApps(o => ({ ...o, [id]: !o[id] }));
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [skillCopied, setSkillCopied] = useState(false);
   const [vaultMsg, setVaultMsg] = useState("");
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
-  // Window positions on the desktop, keyed by stream id. z bumps on focus.
-  type Slot = { x: number; y: number; w: number; h: number; z: number };
-  const [slots, setSlots] = useState<Record<string, Slot>>({});
-  const zTop = useRef(20);
+  // The SHARED desktop: window + icon geometry, z-order, which apps are open,
+  // and minimize/maximize are room-global — synced over the encrypted bus and
+  // persisted to the blob. One computer everyone sees (like slop.computer),
+  // but the relay stays blind.
+  const desk = useSharedDesktop(slug, busKey, mesh);
   const copyInvite = useCallback(() => {
     // The full URL (incl. the #slug:secret fragment) IS the invite — the
     // secret rides the fragment, which never touches the server.
@@ -301,6 +299,14 @@ function Room({
     location.reload();
   }, []);
 
+  // Desktop icons: media captures + app launchers. Double-click to open.
+  const desktopIcons = [
+    { id: "camera", icon: "📷", label: media.activeCamera ? "Stop Cam" : "Camera", act: () => (media.activeCamera ? media.stop("camera") : void media.startCamera()) },
+    { id: "screen", icon: "🖥️", label: "Screen", act: () => void media.startScreen() },
+    { id: "mic", icon: "🎙️", label: media.activeAudio ? "Stop Mic" : "Mic", act: () => (media.activeAudio ? media.stop("audio") : void media.startAudio()) },
+    ...WINDOW_APPS.map(app => ({ id: app.id, icon: app.icon ?? "▢", label: app.label, act: () => desk.openWindow(app.id) })),
+  ];
+
   // Resolve the live stream for a publication: local handle for my pubs,
   // remoteStreams map for everyone else's.
   const tiles = useMemo(() => {
@@ -327,29 +333,7 @@ function Room({
             localStorage.setItem("circle-handle", e.target.value);
           }}
         />
-        {media.activeCamera ? (
-          <button onClick={() => media.stop("camera")}>Stop cam</button>
-        ) : (
-          <button onClick={() => void media.startCamera()} disabled={media.busy === "camera"}>
-            Camera
-          </button>
-        )}
-        <button onClick={() => void media.startScreen()} disabled={media.busy === "screen"}>
-          Screen
-        </button>
-        {media.activeAudio ? (
-          <button onClick={() => media.stop("audio")}>Stop mic</button>
-        ) : (
-          <button onClick={() => void media.startAudio()} disabled={media.busy === "audio"}>
-            Mic
-          </button>
-        )}
         <button onClick={toggleMute}>{muted ? "Unmute" : "Mute"}</button>
-        {WINDOW_APPS.map(app => (
-          <button key={app.id} onClick={() => toggleApp(app.id)}>
-            {app.label}
-          </button>
-        ))}
         <button onClick={copyInvite}>{copied ? "Copied ✓" : "Invite"}</button>
         <button onClick={copySkill} title="Copy an agent brief for operating this circle">
           {skillCopied ? "Copied ✓" : "Skill"}
@@ -393,11 +377,36 @@ function Room({
 
       <div className="desktop-surface">
         {media.error && <div className="media-error">{media.error}</div>}
-        {tiles.length === 0 && <p className="desktop-hint">Nobody is sharing yet — turn on your Camera to circle up. Then hit Invite and send the link to a friend.</p>}
+
+        {/* Desktop icons — double-click to open (positions are shared). */}
+        {desktopIcons.map((ic, i) => {
+          const id = `icon-${ic.id}`;
+          const def: Slot = { x: 20, y: 58 + i * 92, w: 78, h: 82, z: 4 };
+          const slot = desk.slots[id] ?? def;
+          return (
+            <DesktopIcon
+              key={id}
+              icon={ic.icon}
+              label={ic.label}
+              x={slot.x}
+              y={slot.y}
+              zIndex={slot.z}
+              onOpen={ic.act}
+              onFocus={() => desk.focus(id, def)}
+              onMove={({ x, y }) => desk.updateSlot(id, { x, y }, def)}
+            />
+          );
+        })}
+
+        {tiles.length === 0 && (
+          <p className="desktop-hint">Nobody is sharing yet — double-click the Camera icon to circle up, then hit Invite and send the link to a friend.</p>
+        )}
+
+        {/* Shared media windows — geometry synced to everyone. */}
         {tiles.map(({ pub, mine, stream }, i) => {
           const id = pub.streamId;
-          const def: Slot = { x: 30 + (i % 5) * 42, y: 64 + (i % 5) * 44, w: 360, h: 280, z: 5 };
-          const slot = slots[id] ?? def;
+          const def: Slot = { x: 130 + (i % 5) * 42, y: 70 + (i % 5) * 44, w: 360, h: 280, z: 5 };
+          const slot = desk.slots[id] ?? def;
           const auth = mine ? "verified" : mesh.peerAuth[pub.peerId];
           const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "⋯ " : "";
           const kind = pub.kind === "screen" ? "SCREEN" : pub.kind === "audio" ? "AUDIO" : "CAM";
@@ -411,10 +420,14 @@ function Room({
               width={slot.w}
               height={slot.h}
               zIndex={slot.z}
-              onFocus={() => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), z: (zTop.current += 1) } }))}
+              minimized={slot.min}
+              maximized={slot.max}
+              onFocus={() => desk.focus(id, def)}
               onClose={mine ? () => media.stopById(id) : undefined}
-              onMove={({ x, y }) => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), x, y } }))}
-              onResize={({ x, y, width, height }) => setSlots(s => ({ ...s, [id]: { ...(s[id] ?? def), x, y, w: width, h: height } }))}
+              onMinimize={() => desk.updateSlot(id, { min: !slot.min, max: false }, def)}
+              onZoom={() => desk.updateSlot(id, { max: !slot.max, min: false }, def)}
+              onMove={({ x, y }) => desk.updateSlot(id, { x, y }, def)}
+              onResize={({ x, y, width, height }) => desk.updateSlot(id, { x, y, w: width, h: height }, def)}
               bodyStyle={{ padding: 0 }}
             >
               {!stream ? (
@@ -428,9 +441,10 @@ function Room({
           );
         })}
 
-        {WINDOW_APPS.filter(app => openApps[app.id]).map((app, i) => {
-          const def: Slot = { x: 110 + i * 40, y: 80 + i * 40, w: app.defaultSize.w, h: app.defaultSize.h, z: 6 };
-          const slot = slots[app.id] ?? def;
+        {/* Shared app windows — open/close, geometry, minimize all synced. */}
+        {WINDOW_APPS.filter(app => desk.open.has(app.id)).map((app, i) => {
+          const def: Slot = { x: 150 + i * 40, y: 80 + i * 40, w: app.defaultSize.w, h: app.defaultSize.h, z: 6 };
+          const slot = desk.slots[app.id] ?? def;
           const Comp = app.Component;
           return (
             <Window
@@ -441,10 +455,14 @@ function Room({
               width={slot.w}
               height={slot.h}
               zIndex={slot.z}
-              onFocus={() => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), z: (zTop.current += 1) } }))}
-              onClose={() => toggleApp(app.id)}
-              onMove={({ x, y }) => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), x, y } }))}
-              onResize={({ x, y, width, height }) => setSlots(s => ({ ...s, [app.id]: { ...(s[app.id] ?? def), x, y, w: width, h: height } }))}
+              minimized={slot.min}
+              maximized={slot.max}
+              onFocus={() => desk.focus(app.id, def)}
+              onClose={() => desk.closeWindow(app.id)}
+              onMinimize={() => desk.updateSlot(app.id, { min: !slot.min, max: false }, def)}
+              onZoom={() => desk.updateSlot(app.id, { max: !slot.max, min: false }, def)}
+              onMove={({ x, y }) => desk.updateSlot(app.id, { x, y }, def)}
+              onResize={({ x, y, width, height }) => desk.updateSlot(app.id, { x, y, w: width, h: height }, def)}
               bodyStyle={{ padding: 0 }}
             >
               <Comp {...services} />

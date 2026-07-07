@@ -37,7 +37,7 @@ async function enter(tag, first) {
   await p.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail(`${tag}: not admitted`));
   // Exact button match — a plain text=Chat can match the room name in the
   // header if the room slug happens to contain "chat".
-  await p.getByRole("button", { name: "Chat", exact: true }).click();
+  await p.locator(".slop-icon__btn", { hasText: "Chat" }).dblclick();
   const ok = await p
     .waitForSelector('[data-testid="chat-input"]', { timeout: 8000 })
     .then(() => true)

@@ -60,7 +60,7 @@ async function joinRoom(wrongKey, isFirst) {
     await page.click("text=Create room");
   }
   await page.waitForSelector(".slop-menubar", { timeout: 6000 }).catch(() => fail("not admitted"));
-  await page.click("text=Camera");
+  await page.locator(".slop-icon__btn", { hasText: "Camera" }).dblclick();
   await page.waitForSelector("video", { timeout: 8000 });
   return page;
 }
