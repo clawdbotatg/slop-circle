@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode } from "react";
 import { Rnd } from "react-rnd";
 
 // Slop UI kit ported from slop-computer-live's components/ui (Next-isms
@@ -63,8 +63,10 @@ export function DesktopBackground() {
   );
 }
 
-// A draggable desktop icon. Double-click to open its app/window. Position is
-// controlled (so it can be shared across peers like slop's desktop icons).
+// A draggable desktop icon. Double-click (or double-tap on touch) to open.
+// Position is controlled so it syncs across peers, like slop's desktop icons.
+// The tap-count in onDragStop mirrors slop: touch devices drop synthetic
+// dblclick (react-rnd captures the pointer), so we count releases within 400ms.
 export function DesktopIcon({
   icon,
   label,
@@ -84,24 +86,43 @@ export function DesktopIcon({
   onFocus?: () => void;
   onMove?: (p: { x: number; y: number }) => void;
 }) {
+  const dragMovedRef = useRef(false);
+  const lastTapRef = useRef(0);
+  const registerTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 400) {
+      lastTapRef.current = 0;
+      onOpen();
+    } else {
+      lastTapRef.current = now;
+    }
+  };
   return (
     <Rnd
       position={{ x, y }}
       size={{ width: 78, height: 82 }}
       bounds="parent"
       enableResizing={false}
-      dragHandleClassName="slop-icon__btn"
       className="slop-icon"
       style={{ zIndex }}
       onMouseDown={onFocus}
-      onDragStop={(_e, d) => onMove?.({ x: d.x, y: d.y })}
+      onDragStart={() => {
+        dragMovedRef.current = false;
+      }}
+      onDrag={(_e, d) => {
+        if (d.x !== x || d.y !== y) dragMovedRef.current = true;
+      }}
+      onDragStop={(_e, d) => {
+        if (dragMovedRef.current) onMove?.({ x: d.x, y: d.y });
+        else registerTap();
+      }}
     >
-      <button className="slop-icon__btn" type="button" onDoubleClick={onOpen} title={`Open ${label}`}>
+      <div className="slop-icon__btn" onDoubleClick={onOpen} title={`Open ${label}`}>
         <span className="slop-icon__glyph" aria-hidden>
           {icon}
         </span>
         <span className="slop-icon__label">{label}</span>
-      </button>
+      </div>
     </Rnd>
   );
 }
@@ -109,18 +130,33 @@ export function DesktopIcon({
 function Dot({ kind, onClick }: { kind: "close" | "minimize" | "zoom"; onClick?: () => void }) {
   const glyph = kind === "close" ? "✕" : kind === "minimize" ? "–" : "+";
   const cls = `slop-titlebar__dot slop-titlebar__dot--${kind}${onClick ? "" : " slop-titlebar__dot--disabled"}`;
+  // Fire on mousedown AND click (keyboard/synthetic), deduped — matches slop:
+  // the titlebar is react-rnd's drag handle, so acting on mousedown avoids the
+  // drag-init race that would otherwise need a second click.
+  const firedRef = useRef(false);
+  if (!onClick)
+    return (
+      <span className={cls} aria-hidden data-grab="false">
+        {glyph}
+      </span>
+    );
   const fire = (e: React.SyntheticEvent) => {
     e.stopPropagation();
-    onClick?.();
+    if (firedRef.current) return;
+    firedRef.current = true;
+    setTimeout(() => (firedRef.current = false), 0);
+    onClick();
   };
   return (
-    <span className={cls} data-grab="false" onMouseDown={onClick ? fire : undefined}>
+    <span className={cls} role="button" data-grab="false" onMouseDown={fire} onClick={fire}>
       {glyph}
     </span>
   );
 }
 
-export const TITLEBAR_HEIGHT = 28;
+// Matches slop.computer's TITLEBAR_HEIGHT — the shared marker for "minimized":
+// a window whose height <= this is rendered as a docked titlebar-only pill.
+export const TITLEBAR_HEIGHT = 36;
 const PILL_WIDTH = 220;
 
 export type WindowProps = {
@@ -131,14 +167,14 @@ export type WindowProps = {
   height: number;
   zIndex?: number;
   active?: boolean;
-  minimized?: boolean;
-  maximized?: boolean;
   minWidth?: number;
   minHeight?: number;
   onFocus?: () => void;
   onClose?: () => void;
+  /** Collapse to a pill — the parent sets height to TITLEBAR_HEIGHT (shared). */
   onMinimize?: () => void;
-  onZoom?: () => void;
+  /** Click the title while docked to restore — the parent restores height. */
+  onTitleClick?: () => void;
   onMove?: (p: { x: number; y: number }) => void;
   onResize?: (s: { x: number; y: number; width: number; height: number }) => void;
   bodyStyle?: CSSProperties;
@@ -146,10 +182,10 @@ export type WindowProps = {
 };
 
 // Draggable/resizable Mac-OS-9 window: drag by the titlebar, resize from the
-// right/bottom/corner, click to focus. Controlled position + size. Minimize
-// collapses it to a titlebar-only pill (click the title to restore); zoom
-// fills the desktop. All three (position, minimize, maximize) are driven by
-// props so a shared-desktop layer can sync them across peers.
+// right/bottom/corner, click to focus. Controlled position + size. As in slop,
+// "minimized" is derived from height (<= TITLEBAR_HEIGHT → a docked pill, click
+// the title to restore) so it syncs through the slot geometry alone. Zoom
+// (maximize to fill) is a local view toggle.
 export function Window({
   title,
   x,
@@ -158,32 +194,26 @@ export function Window({
   height,
   zIndex = 1,
   active = true,
-  minimized = false,
-  maximized = false,
   minWidth = 200,
   minHeight = 140,
   onFocus,
   onClose,
   onMinimize,
-  onZoom,
+  onTitleClick,
   onMove,
   onResize,
   bodyStyle,
   children,
 }: WindowProps) {
-  const pos = maximized ? { x: 0, y: 0 } : { x, y };
-  const size = maximized
+  const [maxed, setMaxed] = useState(false);
+  const minimized = height <= TITLEBAR_HEIGHT; // slop's isDocked
+  const handleZoom = () => setMaxed(m => !m);
+  const pos = maxed ? { x: 0, y: 0 } : { x, y };
+  const size = maxed
     ? { width: "100%", height: "100%" }
     : minimized
       ? { width: PILL_WIDTH, height: TITLEBAR_HEIGHT }
       : { width, height };
-  const controls = (
-    <div className="slop-titlebar__dots" data-grab="false">
-      <Dot kind="close" onClick={onClose} />
-      <Dot kind="minimize" onClick={onMinimize} />
-      <Dot kind="zoom" onClick={onZoom} />
-    </div>
-  );
   return (
     <Rnd
       position={pos}
@@ -193,9 +223,9 @@ export function Window({
       bounds="parent"
       dragHandleClassName="slop-titlebar"
       cancel=".slop-titlebar__dot"
-      disableDragging={maximized}
+      disableDragging={maxed}
       enableResizing={
-        minimized || maximized
+        minimized || maxed
           ? false
           : { right: true, bottom: true, bottomRight: true, top: false, left: false, topLeft: false, topRight: false, bottomLeft: false }
       }
@@ -215,11 +245,15 @@ export function Window({
       }}
     >
       <div className={`slop-titlebar ${active ? "slop-titlebar--active" : ""}`} data-grab="true">
-        {controls}
+        <div className="slop-titlebar__dots" data-grab="false">
+          <Dot kind="close" onClick={onClose} />
+          <Dot kind="minimize" onClick={onMinimize} />
+          <Dot kind="zoom" onClick={handleZoom} />
+        </div>
         <div
           className="slop-titlebar__title"
-          onDoubleClick={onZoom}
-          onClick={minimized ? onMinimize : undefined}
+          onDoubleClick={handleZoom}
+          onClick={minimized ? onTitleClick : undefined}
           style={minimized ? { cursor: "pointer" } : undefined}
           title={minimized ? "Click to restore" : undefined}
         >

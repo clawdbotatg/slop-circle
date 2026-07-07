@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AudioSurface, DesktopBackground, DesktopIcon, LivePulse, VideoSurface, Window, composeSkill, deriveRoomKeys, exportRoom, importRoom, useMesh, useSharedDesktop, type Slot } from "@commons/os";
+import { AudioSurface, DesktopBackground, DesktopIcon, LivePulse, TITLEBAR_HEIGHT, VideoSurface, Window, composeSkill, deriveRoomKeys, exportRoom, importRoom, useMesh, useSharedDesktop, type SlotPosition } from "@commons/os";
 import { useLocalMedia, type LocalStreamHandle } from "./media/useLocalMedia";
 import { WINDOW_APPS, type AppServices } from "./os/appkit";
 
@@ -205,6 +205,8 @@ function Room({
   // persisted to the blob. One computer everyone sees (like slop.computer),
   // but the relay stays blind.
   const desk = useSharedDesktop(slug, busKey, mesh);
+  // Remembers each window's pre-minimize height so restoring re-inflates it.
+  const savedH = useRef<Record<string, number>>({});
   const copyInvite = useCallback(() => {
     // The full URL (incl. the #slug:secret fragment) IS the invite — the
     // secret rides the fragment, which never touches the server.
@@ -378,10 +380,10 @@ function Room({
       <div className="desktop-surface">
         {media.error && <div className="media-error">{media.error}</div>}
 
-        {/* Desktop icons — double-click to open (positions are shared). */}
+        {/* Desktop icons — double-click / double-tap to open (positions shared). */}
         {desktopIcons.map((ic, i) => {
           const id = `icon-${ic.id}`;
-          const def: Slot = { x: 20, y: 58 + i * 92, w: 78, h: 82, z: 4 };
+          const def: SlotPosition = { id, x: 20, y: 58 + i * 92, width: 78, height: 82, z: 4 };
           const slot = desk.slots[id] ?? def;
           return (
             <DesktopIcon
@@ -392,8 +394,8 @@ function Room({
               y={slot.y}
               zIndex={slot.z}
               onOpen={ic.act}
-              onFocus={() => desk.focus(id, def)}
-              onMove={({ x, y }) => desk.updateSlot(id, { x, y }, def)}
+              onFocus={() => desk.focus(slot)}
+              onMove={({ x, y }) => desk.updateSlot({ ...slot, x, y })}
             />
           );
         })}
@@ -405,7 +407,7 @@ function Room({
         {/* Shared media windows — geometry synced to everyone. */}
         {tiles.map(({ pub, mine, stream }, i) => {
           const id = pub.streamId;
-          const def: Slot = { x: 130 + (i % 5) * 42, y: 70 + (i % 5) * 44, w: 360, h: 280, z: 5 };
+          const def: SlotPosition = { id, x: 130 + (i % 5) * 42, y: 70 + (i % 5) * 44, width: 360, height: 280, z: 5 };
           const slot = desk.slots[id] ?? def;
           const auth = mine ? "verified" : mesh.peerAuth[pub.peerId];
           const mark = auth === "failed" ? "⚠ " : auth === "pending" ? "⋯ " : "";
@@ -417,17 +419,18 @@ function Room({
               title={title}
               x={slot.x}
               y={slot.y}
-              width={slot.w}
-              height={slot.h}
+              width={slot.width}
+              height={slot.height}
               zIndex={slot.z}
-              minimized={slot.min}
-              maximized={slot.max}
-              onFocus={() => desk.focus(id, def)}
+              onFocus={() => desk.focus(slot)}
               onClose={mine ? () => media.stopById(id) : undefined}
-              onMinimize={() => desk.updateSlot(id, { min: !slot.min, max: false }, def)}
-              onZoom={() => desk.updateSlot(id, { max: !slot.max, min: false }, def)}
-              onMove={({ x, y }) => desk.updateSlot(id, { x, y }, def)}
-              onResize={({ x, y, width, height }) => desk.updateSlot(id, { x, y, w: width, h: height }, def)}
+              onMinimize={() => {
+                savedH.current[id] = slot.height;
+                desk.updateSlot({ ...slot, height: TITLEBAR_HEIGHT });
+              }}
+              onTitleClick={() => desk.updateSlot({ ...slot, height: savedH.current[id] ?? def.height })}
+              onMove={({ x, y }) => desk.updateSlot({ ...slot, x, y })}
+              onResize={({ x, y, width, height }) => desk.updateSlot({ ...slot, x, y, width, height })}
               bodyStyle={{ padding: 0 }}
             >
               {!stream ? (
@@ -442,8 +445,8 @@ function Room({
         })}
 
         {/* Shared app windows — open/close, geometry, minimize all synced. */}
-        {WINDOW_APPS.filter(app => desk.open.has(app.id)).map((app, i) => {
-          const def: Slot = { x: 150 + i * 40, y: 80 + i * 40, w: app.defaultSize.w, h: app.defaultSize.h, z: 6 };
+        {WINDOW_APPS.filter(app => desk.openWindowIds.has(app.id)).map((app, i) => {
+          const def: SlotPosition = { id: app.id, x: 150 + i * 40, y: 80 + i * 40, width: app.defaultSize.w, height: app.defaultSize.h, z: 6 };
           const slot = desk.slots[app.id] ?? def;
           const Comp = app.Component;
           return (
@@ -452,17 +455,18 @@ function Room({
               title={app.label.toUpperCase()}
               x={slot.x}
               y={slot.y}
-              width={slot.w}
-              height={slot.h}
+              width={slot.width}
+              height={slot.height}
               zIndex={slot.z}
-              minimized={slot.min}
-              maximized={slot.max}
-              onFocus={() => desk.focus(app.id, def)}
+              onFocus={() => desk.focus(slot)}
               onClose={() => desk.closeWindow(app.id)}
-              onMinimize={() => desk.updateSlot(app.id, { min: !slot.min, max: false }, def)}
-              onZoom={() => desk.updateSlot(app.id, { max: !slot.max, min: false }, def)}
-              onMove={({ x, y }) => desk.updateSlot(app.id, { x, y }, def)}
-              onResize={({ x, y, width, height }) => desk.updateSlot(app.id, { x, y, w: width, h: height }, def)}
+              onMinimize={() => {
+                savedH.current[app.id] = slot.height;
+                desk.updateSlot({ ...slot, height: TITLEBAR_HEIGHT });
+              }}
+              onTitleClick={() => desk.updateSlot({ ...slot, height: savedH.current[app.id] ?? def.height })}
+              onMove={({ x, y }) => desk.updateSlot({ ...slot, x, y })}
+              onResize={({ x, y, width, height }) => desk.updateSlot({ ...slot, x, y, width, height })}
               bodyStyle={{ padding: 0 }}
             >
               <Comp {...services} />

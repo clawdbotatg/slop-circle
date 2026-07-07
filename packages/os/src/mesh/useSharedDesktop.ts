@@ -2,38 +2,37 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getBlob, putBlob } from "../blob";
 
 // The SHARED desktop. Like slop.computer, a circle is a single computer every
-// member sees identically: window geometry, z-order, open/closed, and
-// minimize/maximize are room-global. When anyone moves, resizes, opens,
-// closes, minimizes, or focuses a window, everyone sees it.
+// member sees identically: window geometry, z-order, and which apps are open
+// are room-global. When anyone moves, resizes, opens, closes, minimizes, or
+// focuses a window, everyone sees it.
 //
-// slop keeps this in a relay-side store; circle's relay must stay BLIND, so we
-// sync it over the encrypted bus (live) and persist to the encrypted blob
-// (durable + late-join) — the same primitives Notes/Bank use. The relay only
-// ever fans out ciphertext.
+// CONTRACT MATCHES slop.computer exactly (so a later swap onto its real code
+// is mechanical, not a reconciliation): the `SlotPosition` shape, the
+// `slots` / `openWindowIds` / `updateSlot` / `openWindow` / `closeWindow`
+// surface, the `slot_update` / `window_open` / `window_close` message names,
+// and minimize-encoded-as-height (a window with height <= TITLEBAR_HEIGHT is
+// "docked"; there is no separate min flag) are all slop's. What differs is the
+// TRANSPORT only: slop keeps this in a relay-side store; circle's relay must
+// stay BLIND, so we sync over the encrypted bus (live) + blob (durable /
+// late-join). That transport seam is what makes circle peer-authority.
 
-export type Slot = { x: number; y: number; w: number; h: number; z: number; min?: boolean; max?: boolean };
+export type SlotPosition = { id: string; x: number; y: number; width: number; height: number; z: number };
 
 type Mesh = {
   sendRoomMessage: (o: unknown) => void;
   addRoomMessageListener: (fn: (from: string, obj: unknown) => void) => () => void;
 };
 
-type DesktopSnapshot = { slots: Record<string, Slot>; open: string[] };
-type DesktopMsg =
-  | { __ds: "slot"; id: string; slot: Slot }
-  | { __ds: "open"; id: string }
-  | { __ds: "close"; id: string }
-  | { __ds: "sync-req" }
-  | { __ds: "sync"; slots: Record<string, Slot>; open: string[] };
+type DesktopSnapshot = { slots: Record<string, SlotPosition>; open: string[] };
 
 export function useSharedDesktop(slug: string, roomKey: ArrayBuffer, mesh: Mesh) {
   const { sendRoomMessage, addRoomMessageListener } = mesh;
-  const [slots, setSlots] = useState<Record<string, Slot>>({});
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [slots, setSlots] = useState<Record<string, SlotPosition>>({});
+  const [openWindowIds, setOpenWindowIds] = useState<Set<string>>(new Set());
   const slotsRef = useRef(slots);
   slotsRef.current = slots;
-  const openRef = useRef(open);
-  openRef.current = open;
+  const openRef = useRef(openWindowIds);
+  openRef.current = openWindowIds;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleSave = useCallback(() => {
@@ -43,8 +42,13 @@ export function useSharedDesktop(slug: string, roomKey: ArrayBuffer, mesh: Mesh)
     }, 500);
   }, [slug, roomKey]);
 
-  // Adopt state we don't already have (newcomer catch-up) without clobbering
-  // our own live layout — single live updates below are last-write-wins.
+  // Merge one slot locally (last-write-wins) — mirrors slop's incoming {slot}.
+  const applySlot = useCallback((slot: SlotPosition) => {
+    setSlots(prev => (prev[slot.id] === slot ? prev : { ...prev, [slot.id]: slot }));
+  }, []);
+
+  // Adopt full state we don't already have (newcomer catch-up) — mirrors slop's
+  // `hello` bulk seed — without clobbering our own live layout.
   const fill = useCallback((snap: Partial<DesktopSnapshot>) => {
     if (snap.slots) {
       setSlots(prev => {
@@ -53,13 +57,7 @@ export function useSharedDesktop(slug: string, roomKey: ArrayBuffer, mesh: Mesh)
         return next;
       });
     }
-    if (snap.open) {
-      setOpen(prev => {
-        const next = new Set(prev);
-        for (const id of snap.open!) next.add(id);
-        return next;
-      });
-    }
+    if (snap.open) setOpenWindowIds(prev => new Set([...prev, ...snap.open!]));
   }, []);
 
   useEffect(() => {
@@ -68,61 +66,86 @@ export function useSharedDesktop(slug: string, roomKey: ArrayBuffer, mesh: Mesh)
       if (d && !cancelled) fill(d);
     });
     const off = addRoomMessageListener((_from, obj) => {
-      const m = obj as DesktopMsg;
-      if (!m || typeof (m as { __ds?: string }).__ds !== "string") return;
-      if (m.__ds === "slot") {
-        setSlots(prev => (prev[m.id] === m.slot ? prev : { ...prev, [m.id]: m.slot }));
-      } else if (m.__ds === "open") {
-        setOpen(prev => (prev.has(m.id) ? prev : new Set(prev).add(m.id)));
-      } else if (m.__ds === "close") {
-        setOpen(prev => {
-          if (!prev.has(m.id)) return prev;
-          const next = new Set(prev);
-          next.delete(m.id);
-          return next;
-        });
-      } else if (m.__ds === "sync-req") {
-        sendRoomMessage({ __ds: "sync", slots: slotsRef.current, open: [...openRef.current] } satisfies DesktopMsg);
-      } else if (m.__ds === "sync") {
-        fill({ slots: m.slots, open: m.open });
+      const m = obj as { type?: string; id?: string; slots?: Record<string, SlotPosition>; open?: string[] } & Partial<SlotPosition>;
+      switch (m?.type) {
+        case "slot_update": {
+          if (typeof m.id !== "string") return;
+          const e = slotsRef.current[m.id];
+          applySlot({
+            id: m.id,
+            x: m.x ?? e?.x ?? 80,
+            y: m.y ?? e?.y ?? 280,
+            width: m.width ?? e?.width ?? 360,
+            height: m.height ?? e?.height ?? 260,
+            z: m.z ?? e?.z ?? 5,
+          });
+          return;
+        }
+        case "window_open":
+          if (typeof m.id === "string") setOpenWindowIds(prev => (prev.has(m.id!) ? prev : new Set(prev).add(m.id!)));
+          return;
+        case "window_close":
+          if (typeof m.id === "string")
+            setOpenWindowIds(prev => {
+              if (!prev.has(m.id!)) return prev;
+              const next = new Set(prev);
+              next.delete(m.id!);
+              return next;
+            });
+          return;
+        case "desktop_sync_req":
+          sendRoomMessage({ type: "desktop_sync", slots: slotsRef.current, open: [...openRef.current] });
+          return;
+        case "desktop_sync":
+          fill({ slots: m.slots, open: m.open });
+          return;
       }
     });
-    // Ask whoever's here for the current desktop.
-    sendRoomMessage({ __ds: "sync-req" } satisfies DesktopMsg);
+    sendRoomMessage({ type: "desktop_sync_req" });
     return () => {
       cancelled = true;
       off();
     };
-  }, [slug, roomKey, sendRoomMessage, addRoomMessageListener, fill]);
+  }, [slug, roomKey, sendRoomMessage, addRoomMessageListener, applySlot, fill]);
 
-  // Merge a patch into a slot and broadcast it (last-write-wins across peers).
+  // slop's updateSlot: a patch that always carries id; a brand-new window is
+  // forced to the front (z above every existing slot). Optimistic local merge
+  // + broadcast.
   const updateSlot = useCallback(
-    (id: string, patch: Partial<Slot>, fallback: Slot) => {
-      setSlots(prev => {
-        const cur = prev[id] ?? fallback;
-        const merged = { ...cur, ...patch };
-        sendRoomMessage({ __ds: "slot", id, slot: merged } satisfies DesktopMsg);
-        return { ...prev, [id]: merged };
-      });
+    (patch: Partial<SlotPosition> & { id: string }) => {
+      const cur = slotsRef.current[patch.id];
+      const finalPatch: Partial<SlotPosition> & { id: string } = cur
+        ? patch
+        : { ...patch, z: Math.max(0, ...Object.values(slotsRef.current).map(s => s.z)) + 1 };
+      const merged: SlotPosition = {
+        id: finalPatch.id,
+        x: finalPatch.x ?? cur?.x ?? 80,
+        y: finalPatch.y ?? cur?.y ?? 280,
+        width: finalPatch.width ?? cur?.width ?? 360,
+        height: finalPatch.height ?? cur?.height ?? 260,
+        z: finalPatch.z ?? cur?.z ?? 5,
+      };
+      setSlots(prev => ({ ...prev, [merged.id]: merged }));
+      sendRoomMessage({ type: "slot_update", ...finalPatch });
       scheduleSave();
     },
     [sendRoomMessage, scheduleSave],
   );
 
-  // Bump a window to the front (shared z-order).
+  // Bump a slot to the front (shared z-order).
   const focus = useCallback(
-    (id: string, fallback: Slot) => {
+    (slot: SlotPosition) => {
       const maxZ = Math.max(5, ...Object.values(slotsRef.current).map(s => s.z));
-      if ((slotsRef.current[id]?.z ?? 0) === maxZ) return;
-      updateSlot(id, { z: maxZ + 1 }, fallback);
+      if (slot.z === maxZ) return;
+      updateSlot({ ...slot, z: maxZ + 1 });
     },
     [updateSlot],
   );
 
   const openWindow = useCallback(
     (id: string) => {
-      setOpen(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
-      sendRoomMessage({ __ds: "open", id } satisfies DesktopMsg);
+      setOpenWindowIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+      sendRoomMessage({ type: "window_open", id });
       scheduleSave();
     },
     [sendRoomMessage, scheduleSave],
@@ -130,17 +153,17 @@ export function useSharedDesktop(slug: string, roomKey: ArrayBuffer, mesh: Mesh)
 
   const closeWindow = useCallback(
     (id: string) => {
-      setOpen(prev => {
+      setOpenWindowIds(prev => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
-      sendRoomMessage({ __ds: "close", id } satisfies DesktopMsg);
+      sendRoomMessage({ type: "window_close", id });
       scheduleSave();
     },
     [sendRoomMessage, scheduleSave],
   );
 
-  return { slots, open, updateSlot, focus, openWindow, closeWindow };
+  return { slots, openWindowIds, updateSlot, focus, openWindow, closeWindow };
 }
