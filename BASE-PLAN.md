@@ -347,7 +347,15 @@ step. The direction only changes *which* codebase is the donor.
 5. **Theme timing** — build-time (leaning, IPFS-friendly) vs runtime swap.
 6. **When to start the slop.computer migration** — after the base is proven
    by circle (leaning) vs in parallel.
-7. **Migration direction** (see §10, "two directions") — `@commons/os` is the
-   source of truth and slop adopts it (leaning; keeps circle's clean E2EE/Vite
-   base as the donor) vs extract the base from slop's real, polished OS code.
-   Either way slop must migrate; this only decides the donor codebase.
+7. **Migration direction** (see §10, "two directions") — ✅ DECIDED (2026-07-06):
+   **"match slop exactly, extract later."** Circle keeps its own components for
+   now, but their contracts are made byte-identical to slop's (slot shape,
+   mesh/transport API surface, wire-message names, CSS classnames) so the
+   eventual extraction/swap onto slop's real code is mechanical, not a
+   reconciliation. Rule going forward: align the OS-layer to slop's exact
+   contracts; never reimplement a divergent one. Transport (relay store vs
+   bus/blob) is the intended per-product difference. First alignment done: the
+   shared-desktop contract (SlotPosition, useSharedDesktop surface,
+   slot_update/window_open/window_close, minimize-as-height). Known remaining
+   divergences to reconcile at true extraction: maximize encoding, DesktopIcon
+   medium (emoji glyph vs img src), and the transport itself.
